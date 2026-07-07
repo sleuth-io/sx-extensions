@@ -245,3 +245,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/style-linter/3"
+
+[[assets]]
+  name = "library-board"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-board/3"
