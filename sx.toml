@@ -133,3 +133,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/claude-assist/1"
+
+[[assets]]
+  name = "review-rota"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/review-rota/1"
