@@ -63,3 +63,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/related-assets/2"
+
+[[assets]]
+  name = "smart-templates"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/smart-templates/2"

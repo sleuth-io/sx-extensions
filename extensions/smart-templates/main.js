@@ -192,8 +192,11 @@ export default class SmartTemplates {
         const files = t.files.map((f) => ({
           path: f.path,
           content: substitute(
-            // The template flag must not travel into the scaffolded asset.
-            f.content.replace(/^template:\s*true\s*$/m, ""),
+            // The template flag must not travel into the scaffolded
+            // asset, and its frontmatter name becomes the new asset's.
+            f.content
+              .replace(/^template:\s*true\s*$/m, "")
+              .replace(/^name:\s*.+$/m, "name: " + name),
             name,
             values,
           ),
