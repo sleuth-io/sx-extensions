@@ -20,6 +20,10 @@ rebuilt for a team AI-asset library.
 | **Style Linter** | Linter (1.0M) | Toggleable formatting rules at publish time, a per-asset Style tab, and whole-library lint |
 | **Asset Relations** | Strange New Worlds + Breadcrumbs | Referenced-by tab, orphans-and-hubs widget, broken-reference and edit-impact publish warnings |
 | **Team Digest** | Periodic Notes (709k) | Weekly library digest generated as a reviewable draft: changes, usage movers, attention items |
+| **Table Tidy** | Advanced Tables (3.0M) | Formats markdown tables in the draft editor; ragged-table publish warnings |
+| **Draft Refactor** | Note Refactor (332k) | Extract a selection into its own draft with a reference left behind |
+| **Metric Charts** | Tracker + Charts | Chart DSL over usage/audit events with pinnable dashboard charts |
+| **Library Grid & Board** | Projects + DB Folder + Kanban | Editable metadata grid and a draft pipeline board with publish-stage warnings |
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
