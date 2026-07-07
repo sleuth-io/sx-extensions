@@ -98,3 +98,17 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/team-digest/1"
+
+[[assets]]
+  name = "table-tidy"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/table-tidy/1"
+
+[[assets]]
+  name = "draft-refactor"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/draft-refactor/1"

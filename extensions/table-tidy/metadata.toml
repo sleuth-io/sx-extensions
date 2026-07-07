@@ -1,0 +1,9 @@
+[asset]
+name = "table-tidy"
+version = "1.0.0"
+type = "app-plugin"
+description = "Formats markdown tables in the draft editor — padded columns, aligned pipes — and warns at publish time about ragged tables. Inspired by Obsidian's Advanced Tables."
+
+[app-plugin]
+entry = "main.js"
+permissions = ["editor", "commands", "events"]

@@ -1,0 +1,9 @@
+[asset]
+  name = "draft-refactor"
+  version = "1"
+  type = "app-plugin"
+  description = "Extract the selected section of a draft into its own new draft, leaving a reference behind — the progressive-disclosure fix for bloated skills. Inspired by Obsidian's Note Refactor."
+
+[app-plugin]
+  entry = "main.js"
+  permissions = ["editor", "drafts:write", "commands"]
