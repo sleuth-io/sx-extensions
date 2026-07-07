@@ -157,23 +157,21 @@ export default class LibraryBoard {
         const lane = el("div", "border: 1px solid var(--color-line); border-radius: 10px; min-height: 160px; padding: 8px;");
         lane.dataset.stage = stage;
         lane.append(el("div", FAINT + "font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 6px;", stage));
-        lane.addEventListener("dragover", (e) => e.preventDefault());
-        lane.addEventListener("drop", async (e) => {
-          e.preventDefault();
-          const id = e.dataTransfer.getData("text/plain");
-          if (!id) return;
-          state.stages[id] = stage;
-          await this.sx.storage.saveData(state);
-          void this.renderBoard(root);
-        });
         for (const d of drafts.filter((x) => (state.stages[x.id] || "Incoming") === stage)) {
           const card = el(
             "div",
             "border: 1px solid var(--color-line); border-radius: 8px; padding: 6px 8px;" +
-              "margin-bottom: 6px; cursor: grab; background: var(--color-surface); font-size: 12px;",
+              "margin-bottom: 6px; cursor: grab; background: var(--color-surface); font-size: 12px;" +
+              // Pointer-drag, not HTML5 DnD: dragstart never fires in
+              // the app's webview, and without it the browser falls
+              // back to text selection mid-drag.
+              "user-select: none; -webkit-user-select: none; touch-action: none;",
           );
-          card.draggable = true;
-          card.addEventListener("dragstart", (e) => e.dataTransfer.setData("text/plain", d.id));
+          card.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            this.startCardDrag(e, card, d.id, root);
+          });
           card.append(
             el("div", "font-weight: 600;", d.name),
             el("div", FAINT + "font-size: 10px;", d.type + (d.targetAsset ? " · updates " + d.targetAsset : " · new")),
@@ -190,6 +188,66 @@ export default class LibraryBoard {
       if (seq !== this.renderSeq) return;
       root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Couldn't load drafts: " + e));
     }
+  }
+
+  /** Pointer-based card drag: capture the pointer, float the card
+   * under it, highlight the lane it's over, and drop on release. All
+   * listeners live on the card via setPointerCapture, so there's
+   * nothing to leak — release ends everything. */
+  startCardDrag(down, card, draftId, root) {
+    card.setPointerCapture(down.pointerId);
+    const rect = card.getBoundingClientRect();
+    let moved = false;
+    let hoverLane = null;
+    const laneUnder = (e) => {
+      card.style.pointerEvents = "none";
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      card.style.pointerEvents = "";
+      return under ? under.closest("[data-stage]") : null;
+    };
+    const onMove = (e) => {
+      if (!moved && Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 4) return;
+      if (!moved) {
+        moved = true;
+        card.style.position = "fixed";
+        card.style.width = rect.width + "px";
+        card.style.zIndex = "40";
+        card.style.opacity = "0.85";
+        card.style.cursor = "grabbing";
+      }
+      card.style.left = rect.left + (e.clientX - down.clientX) + "px";
+      card.style.top = rect.top + (e.clientY - down.clientY) + "px";
+      const lane = laneUnder(e);
+      if (lane !== hoverLane) {
+        if (hoverLane) hoverLane.style.borderColor = "var(--color-line)";
+        if (lane) lane.style.borderColor = "var(--color-accent)";
+        hoverLane = lane;
+      }
+    };
+    const onUp = async (e) => {
+      card.removeEventListener("pointermove", onMove);
+      card.removeEventListener("pointerup", onUp);
+      card.removeEventListener("pointercancel", onUp);
+      if (hoverLane) hoverLane.style.borderColor = "var(--color-line)";
+      const lane = moved && e.type === "pointerup" ? laneUnder(e) : null;
+      if (!lane) {
+        void this.renderBoard(root); // snap back
+        return;
+      }
+      try {
+        // Re-read state at drop time — the copy from render is stale
+        // the moment another surface (or a second window) saves.
+        const state = await this.state();
+        state.stages[draftId] = lane.dataset.stage;
+        await this.sx.storage.saveData(state);
+      } catch (err) {
+        this.sx.ui.notice("Couldn't move the draft: " + err);
+      }
+      void this.renderBoard(root);
+    };
+    card.addEventListener("pointermove", onMove);
+    card.addEventListener("pointerup", onUp);
+    card.addEventListener("pointercancel", onUp);
   }
 
   async gate(ctx) {
