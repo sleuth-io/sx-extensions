@@ -1,0 +1,9 @@
+[asset]
+  name = "metric-charts"
+  version = "1"
+  type = "app-plugin"
+  description = "Ask your own usage questions: a small chart DSL over usage and change events — group by day, week, or month, split by team, user, or asset — with pinnable dashboard charts. Inspired by Obsidian's Tracker and Charts."
+
+[app-plugin]
+  entry = "main.js"
+  permissions = ["usage:read", "views:sidebar", "views:dashboard"]
