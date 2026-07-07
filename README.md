@@ -24,6 +24,7 @@ rebuilt for a team AI-asset library.
 | **Draft Refactor** | Note Refactor (332k) | Extract a selection into its own draft with a reference left behind |
 | **Metric Charts** | Tracker + Charts | Chart DSL over usage/audit events with pinnable dashboard charts |
 | **Library Grid & Board** | Projects + DB Folder + Kanban | Editable metadata grid and a draft pipeline board with publish-stage warnings |
+| **Claude Assist** | Smart Composer / Copilot-class assistants | Ask the library with cited answers, critique a draft as a prompt, draft a skill from a description — your own Claude API key, kept in the OS keychain |
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
