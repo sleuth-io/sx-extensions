@@ -1,6 +1,6 @@
 [asset]
 name = "style-linter"
-version = "1.1.0"
+version = "1.1.1"
 type = "app-plugin"
 description = "Formatting-consistency checks at publish time — heading hierarchy, whitespace, code-fence languages — with toggleable rules and a whole-library lint. Inspired by Obsidian's Linter."
 

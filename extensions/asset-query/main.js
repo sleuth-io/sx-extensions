@@ -142,7 +142,7 @@ export default class AssetQuery {
   }
 
   async mount(view) {
-    const saved = (await this.sx.storage.loadData()) || {};
+    const saved = (await this.sx.storage.loadData().catch(() => null)) || {};
     const editor = el(
       "textarea",
       "width: 100%; box-sizing: border-box; min-height: 56px; padding: 8px 10px;" +
@@ -156,11 +156,16 @@ export default class AssetQuery {
     const out = el("div", "padding: 4px 12px 10px;");
     view.el.append(editor, out);
 
+    // Debounced input and ⌘↵ can overlap; loadRows is slow. Only the
+    // latest run may render or persist — stale completions are dropped.
+    let runSeq = 0;
     const run = async () => {
+      const seq = ++runSeq;
       out.replaceChildren(el("div", FAINT + "font-size: 12px; padding: 6px 0;", "Running…"));
       try {
         const q = parseQuery(editor.value);
         const rows = await this.loadRows();
+        if (seq !== runSeq) return;
         let result = rows.filter((r) => q.where.every((c) => matches(r, c)));
         if (q.sort) {
           const dir = q.sort.dir === "desc" ? -1 : 1;
@@ -168,8 +173,10 @@ export default class AssetQuery {
         }
         result = result.slice(0, q.limit);
         await this.sx.storage.saveData({ query: editor.value });
+        if (seq !== runSeq) return;
         this.renderTable(out, q, result);
       } catch (e) {
+        if (seq !== runSeq) return;
         out.replaceChildren(
           el("div", "font-size: 12px; padding: 6px 0; color: var(--color-danger);", String(e && e.message ? e.message : e)),
         );

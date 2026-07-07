@@ -36,11 +36,13 @@ function parseSpec(text) {
 }
 
 function bucketKey(iso, groupBy) {
-  const d = new Date(iso);
   if (groupBy === "day") return iso.slice(0, 10);
   if (groupBy === "month") return iso.slice(0, 7);
-  const day = (d.getDay() + 6) % 7;
-  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+  // Day/month buckets slice the ISO string (UTC), so weeks must be
+  // computed in UTC too or labels drift across the timezone boundary.
+  const d = new Date(iso);
+  const day = (d.getUTCDay() + 6) % 7;
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day));
   return monday.toISOString().slice(0, 10);
 }
 
@@ -198,16 +200,20 @@ export default class MetricCharts {
         const spec = parseSpec(editor.value);
         const data = await this.run(spec, await this.teamMap());
         this.render(out, spec, data);
-        saved.draft = editor.value;
-        void this.sx.storage.saveData(saved);
+        // Reload before saving — the widget may have written pins since
+        // this panel captured its copy.
+        const fresh = (await this.sx.storage.loadData().catch(() => null)) || {};
+        fresh.draft = editor.value;
+        void this.sx.storage.saveData(fresh);
       } catch (e) {
         out.replaceChildren(el("div", FAINT + "font-size: 11px;", "Failed: " + e));
       }
     };
     runBtn.addEventListener("click", () => void run());
     pinBtn.addEventListener("click", async () => {
-      saved.pinned = [...(saved.pinned || []), editor.value].slice(-4);
-      await this.sx.storage.saveData(saved);
+      const fresh = (await this.sx.storage.loadData().catch(() => null)) || {};
+      fresh.pinned = [...(fresh.pinned || []), editor.value].slice(-4);
+      await this.sx.storage.saveData(fresh);
       this.sx.ui.notice("Pinned — see the Pinned metrics dashboard widget.");
     });
   }
@@ -233,8 +239,14 @@ export default class MetricCharts {
       }
       const unpin = el("button", FAINT + "background: none; border: none; font-size: 10px; cursor: pointer; padding: 2px 0;", "unpin");
       unpin.addEventListener("click", async () => {
-        saved.pinned = pinned.filter((_, j) => j !== i);
-        await this.sx.storage.saveData(saved);
+        // Reload and match by content — our captured index may be stale
+        // if the panel pinned or another unpin ran since we mounted.
+        const fresh = (await this.sx.storage.loadData().catch(() => null)) || {};
+        const idx = (fresh.pinned || []).indexOf(text);
+        if (idx !== -1) {
+          fresh.pinned = fresh.pinned.filter((_, j) => j !== idx);
+          await this.sx.storage.saveData(fresh);
+        }
         void this.mountWidget(view);
       });
       box.append(unpin);

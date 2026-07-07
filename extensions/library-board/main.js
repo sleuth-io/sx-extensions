@@ -21,6 +21,7 @@ const STAGES = ["Incoming", "Drafting", "In review", "Ready"];
 export default class LibraryBoard {
   onload(sx) {
     this.sx = sx;
+    this.renderSeq = 0;
     sx.registerMainView({
       id: "board",
       title: "Grid & Board",
@@ -58,12 +59,15 @@ export default class LibraryBoard {
   // ---- Grid: editable metadata across the library ----
 
   async renderGrid(root) {
+    // Tab clicks can race — only the latest render may write into root.
+    const seq = ++this.renderSeq;
     root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading assets…"));
     try {
       const [assets, events] = await Promise.all([
         this.sx.assets.list(),
         this.sx.usage.events(30).catch(() => []),
       ]);
+      if (seq !== this.renderSeq) return;
       const uses = new Map();
       for (const e of events) uses.set(e.assetName, (uses.get(e.assetName) || 0) + 1);
       const table = el("table", "width: 100%; border-collapse: collapse; font-size: 12px;");
@@ -84,11 +88,17 @@ export default class LibraryBoard {
         const name = el("button", "background: none; border: none; padding: 0; font: inherit; font-size: 12px; color: var(--color-accent); cursor: pointer;", a.name);
         name.addEventListener("click", () => this.sx.ui.openAsset(a.name));
         tr.append(td(name));
+        // Owner/status aren't in assets.list, so untouched inputs are
+        // blank — not the current values. Track what the user actually
+        // edited and patch only those fields; omitted means no-change.
+        const dirty = { description: false, owner: false, status: false };
         const desc = el("input", INPUT);
         desc.value = a.description || "";
+        desc.addEventListener("input", () => (dirty.description = true));
         tr.append(td(desc));
         const owner = el("input", INPUT + "max-width: 110px;");
         owner.placeholder = "owner";
+        owner.addEventListener("input", () => (dirty.owner = true));
         tr.append(td(owner));
         const status = el("select", INPUT + "max-width: 110px;");
         for (const o of ["", "active", "needs-review", "deprecated"]) {
@@ -96,18 +106,23 @@ export default class LibraryBoard {
           opt.value = o;
           status.append(opt);
         }
+        status.addEventListener("change", () => (dirty.status = true));
         tr.append(td(status));
         tr.append(td(el("span", FAINT + "font-size: 11px;", String(uses.get(a.name) || 0))));
         const save = el("button", "border: 1px solid var(--color-line); border-radius: 6px; background: none; padding: 2px 10px; font: inherit; font-size: 11px; cursor: pointer; color: var(--color-ink-soft);", "Save");
         save.addEventListener("click", async () => {
+          const patch = {};
+          if (dirty.description) patch.description = desc.value;
+          if (dirty.owner) patch.owner = owner.value;
+          if (dirty.status) patch.status = status.value;
+          if (Object.keys(patch).length === 0) {
+            save.textContent = "Saved ✓";
+            return;
+          }
           save.disabled = true;
           save.textContent = "Saving…";
           try {
-            await this.sx.writeAssetMetadata(a.name, {
-              description: desc.value,
-              owner: owner.value,
-              status: status.value,
-            });
+            await this.sx.writeAssetMetadata(a.name, patch);
             save.textContent = "Saved ✓";
           } catch (e) {
             save.textContent = "Save";
@@ -124,6 +139,7 @@ export default class LibraryBoard {
         table,
       );
     } catch (e) {
+      if (seq !== this.renderSeq) return;
       root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Couldn't load: " + e));
     }
   }
@@ -131,9 +147,11 @@ export default class LibraryBoard {
   // ---- Board: the draft pipeline ----
 
   async renderBoard(root) {
+    const seq = ++this.renderSeq;
     root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading drafts…"));
     try {
       const [drafts, state] = await Promise.all([this.sx.drafts.list(), this.state()]);
+      if (seq !== this.renderSeq) return;
       const lanes = el("div", "display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;");
       for (const stage of STAGES) {
         const lane = el("div", "border: 1px solid var(--color-line); border-radius: 10px; min-height: 160px; padding: 8px;");
@@ -169,6 +187,7 @@ export default class LibraryBoard {
         lanes,
       );
     } catch (e) {
+      if (seq !== this.renderSeq) return;
       root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Couldn't load drafts: " + e));
     }
   }

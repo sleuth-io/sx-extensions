@@ -21,13 +21,15 @@ function lastCompleteWeek(now) {
   const thisMonday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
   const start = new Date(thisMonday.getTime() - 7 * DAY_MS);
   const end = thisMonday;
-  // ISO week number of the start day.
-  const jan4 = new Date(start.getFullYear(), 0, 4);
+  // ISO week-numbering year AND week both come from the week's Thursday
+  // — a Monday in late December can belong to next year's W01.
+  const thursday = new Date(start.getTime() + 3 * DAY_MS);
+  const jan4 = new Date(thursday.getFullYear(), 0, 4);
   const week1Monday = new Date(
     jan4.getFullYear(), 0, 4 - ((jan4.getDay() + 6) % 7),
   );
-  const week = 1 + Math.round((start - week1Monday) / (7 * DAY_MS));
-  return { start, end, label: `${start.getFullYear()}-W${String(week).padStart(2, "0")}` };
+  const week = 1 + Math.round((thursday - week1Monday) / (7 * DAY_MS));
+  return { start, end, label: `${thursday.getFullYear()}-W${String(week).padStart(2, "0")}` };
 }
 
 function within(iso, start, end) {

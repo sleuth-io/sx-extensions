@@ -40,6 +40,14 @@ function formatDate(fmt) {
 
 const PLACEHOLDER = /\{\{\s*(date|name|prompt|choose)(?::([^}|]*))?(?:\|([^}]*))?\s*\}\}/g;
 
+/** Split content into its leading --- frontmatter block and the rest.
+ * Returns null when the file doesn't open with a frontmatter fence —
+ * `template: true` in the body text must not make an asset a template. */
+function splitFrontmatter(content) {
+  const m = content.match(/^(---\r?\n[^]*?\r?\n---)([^]*)$/);
+  return m ? { block: m[1], rest: m[2] } : null;
+}
+
 /** Distinct prompt/choose variables in template order. */
 function scanVariables(text) {
   const vars = [];
@@ -88,7 +96,8 @@ export default class SmartTemplates {
         try {
           const files = await this.sx.assets.readFiles(summary.name);
           const first = files.find((f) => /\.(md|markdown)$/i.test(f.path));
-          if (first && /^template:\s*true$/m.test(first.content.slice(0, 500))) {
+          const fm = first ? splitFrontmatter(first.content) : null;
+          if (fm && /^template:\s*true\s*$/m.test(fm.block)) {
             templates.push({ summary, files });
           }
         } catch {
@@ -211,18 +220,24 @@ export default class SmartTemplates {
       create.disabled = true;
       create.textContent = "Creating…";
       try {
-        const files = t.files.map((f) => ({
-          path: f.path,
-          content: substitute(
-            // The template flag must not travel into the scaffolded
-            // asset, and its frontmatter name becomes the new asset's.
-            f.content
-              .replace(/^template:\s*true\s*$/m, "")
-              .replace(/^name:\s*.+$/m, "name: " + name),
-            name,
-            values,
-          ),
-        }));
+        // The template flag must not travel into the scaffolded asset,
+        // and its frontmatter name becomes the new asset's — but only
+        // inside the entry file's leading frontmatter block; body text
+        // that happens to say "template: true" or "name:" stays put.
+        const entry = t.files.find((f) => /\.(md|markdown)$/i.test(f.path));
+        const files = t.files.map((f) => {
+          let content = f.content;
+          if (entry && f.path === entry.path) {
+            const fm = splitFrontmatter(content);
+            if (fm) {
+              const block = fm.block
+                .replace(/^template:\s*true\s*$/m, "")
+                .replace(/^name:\s*.+$/m, "name: " + name);
+              content = block + fm.rest;
+            }
+          }
+          return { path: f.path, content: substitute(content, name, values) };
+        });
         await this.sx.drafts.create({ name, files });
         saved[t.summary.name] = values;
         void this.sx.storage.saveData(saved);

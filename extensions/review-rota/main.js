@@ -62,6 +62,10 @@ export default class ReviewRota {
   onload(sx) {
     this.sx = sx;
     this.filter = "due";
+    // Every shared-storage read-modify-write goes through this chain —
+    // concurrent verdicts (or a publish event racing a verdict) must
+    // never interleave their load/save pairs.
+    this.saveChain = Promise.resolve();
     sx.registerMainView({
       id: "rota",
       title: "Review Rota",
@@ -84,13 +88,23 @@ export default class ReviewRota {
     return state.assets[name] || {};
   }
 
-  async saveVerdict(name, mutate) {
-    const state = await this.state();
-    const e = this.entry(state, name);
-    mutate(e);
-    e.history = (e.history || []).slice(-4);
-    state.assets[name] = e;
-    await this.sx.sharedStorage.save(state);
+  /** Serialize a shared-storage read-modify-write; a failure rejects
+   * the caller but never poisons the chain for the next write. */
+  chained(fn) {
+    const run = this.saveChain.then(fn);
+    this.saveChain = run.catch(() => {});
+    return run;
+  }
+
+  saveVerdict(name, mutate) {
+    return this.chained(async () => {
+      const state = await this.state();
+      const e = this.entry(state, name);
+      mutate(e);
+      e.history = (e.history || []).slice(-4);
+      state.assets[name] = e;
+      await this.sx.sharedStorage.save(state);
+    });
   }
 
   // ---- Rota computation ----
@@ -187,7 +201,9 @@ export default class ReviewRota {
       "Deprecate",
     );
     if (!ok) return;
-    await this.sx.writeAssetMetadata(name, { status: "deprecated" });
+    // Persist the flag FIRST — writeAssetMetadata fires asset-published,
+    // and the handler must already see deprecated=true, not race the
+    // asset back into the rota.
     await this.saveVerdict(name, (e) => {
       e.deprecated = true;
       (e.history = e.history || []).push({
@@ -196,19 +212,24 @@ export default class ReviewRota {
         verdict: "deprecate",
       });
     });
+    await this.sx.writeAssetMetadata(name, { status: "deprecated" });
     this.sx.ui.notice(`${name}: deprecated`);
   }
 
-  async onPublished(name) {
-    const state = await this.state();
-    // Only write when there's something to reset — publishes are common
-    // and every save syncs (and commits, on git vaults).
-    const e = this.entry(state, name);
-    if (!e.lastReview && !e.flag) return;
-    await this.saveVerdict(name, (entry) => {
-      entry.lastReview = new Date().toISOString();
-      entry.flag = null;
-      entry.flagNote = null;
+  onPublished(name) {
+    // Read AND write inside the chain — the check must see any verdict
+    // saved just before the publish event landed.
+    return this.chained(async () => {
+      const state = await this.state();
+      // Only write when there's something to reset — publishes are common
+      // and every save syncs (and commits, on git vaults).
+      const e = this.entry(state, name);
+      if (!e.lastReview && !e.flag) return;
+      e.lastReview = new Date().toISOString();
+      e.flag = null;
+      e.flagNote = null;
+      state.assets[name] = e;
+      await this.sx.sharedStorage.save(state);
     });
   }
 
@@ -344,7 +365,11 @@ export default class ReviewRota {
     const actions = el("div", "display: flex; gap: 6px; flex-shrink: 0;");
     const reviewed = el("button", BUTTON, "Reviewed");
     reviewed.onclick = async () => {
-      await this.markReviewed(r.asset.name, r.tier);
+      try {
+        await this.markReviewed(r.asset.name, r.tier);
+      } catch (e) {
+        this.sx.ui.notice(`Couldn't mark ${r.asset.name} reviewed: ` + (e?.message || e));
+      }
       void redraw();
     };
     const needs = el("button", BUTTON, "Needs update");
@@ -361,7 +386,11 @@ export default class ReviewRota {
       note.placeholder = "What does it need?";
       const save = el("button", BUTTON, "Flag");
       save.onclick = async () => {
-        await this.markNeedsUpdate(r.asset.name, note.value.trim());
+        try {
+          await this.markNeedsUpdate(r.asset.name, note.value.trim());
+        } catch (e) {
+          this.sx.ui.notice(`Couldn't flag ${r.asset.name}: ` + (e?.message || e));
+        }
         void redraw();
       };
       const cancel = el("button", BUTTON, "Cancel");
@@ -375,7 +404,11 @@ export default class ReviewRota {
     };
     const dep = el("button", BUTTON + "color: var(--color-danger);", "Deprecate");
     dep.onclick = async () => {
-      await this.deprecate(r.asset.name);
+      try {
+        await this.deprecate(r.asset.name);
+      } catch (e) {
+        this.sx.ui.notice(`Couldn't deprecate ${r.asset.name}: ` + (e?.message || e));
+      }
       void redraw();
     };
     actions.append(reviewed, needs, dep);

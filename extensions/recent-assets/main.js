@@ -32,6 +32,8 @@ function relativeTime(iso) {
 export default class RecentAssets {
   onload(sx) {
     this.sx = sx;
+    this.pins = new Set();
+    this.mountGen = 0; // newest mount wins; stale mounts stand down
     sx.registerSidebarPanel({
       id: "recent",
       title: "Recent",
@@ -42,6 +44,9 @@ export default class RecentAssets {
   onunload() {}
 
   async mount(view) {
+    // A discarded StrictMode first mount must not reset this.pins (or
+    // repaint) after the surviving mount finishes.
+    const gen = ++this.mountGen;
     view.el.replaceChildren(
       el("div", FAINT + "font-size: 11px; padding: 2px 8px;", "Loading…"),
     );
@@ -51,6 +56,7 @@ export default class RecentAssets {
         this.sx.usage.events(30),
         this.sx.assets.list(),
       ]);
+      if (gen !== this.mountGen) return;
       this.pins = new Set((saved && saved.pins) || []);
       const known = new Map(assets.map((a) => [a.name, a]));
 
@@ -82,14 +88,9 @@ export default class RecentAssets {
           rows.push({ name: pin, type: known.get(pin).type, when: "", actor: "", week: 0 });
         }
       }
-      rows.sort((a, b) => {
-        const pa = this.pins.has(a.name) ? 0 : 1;
-        const pb = this.pins.has(b.name) ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-        return a.when < b.when ? 1 : -1;
-      });
       this.render(view.el, rows);
     } catch (e) {
+      if (gen !== this.mountGen) return;
       view.el.replaceChildren(
         el(
           "div",
@@ -101,6 +102,13 @@ export default class RecentAssets {
   }
 
   render(root, rows) {
+    // Sorted here (not in mount) so a pin toggle re-sorts on re-render.
+    rows.sort((a, b) => {
+      const pa = this.pins.has(a.name) ? 0 : 1;
+      const pb = this.pins.has(b.name) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return a.when < b.when ? 1 : -1;
+    });
     root.replaceChildren();
     if (rows.length === 0) {
       // Match the sidebar's section-label indentation so the empty
@@ -167,11 +175,18 @@ export default class RecentAssets {
       pin.title = pinned ? "Unpin" : "Pin to top";
       pin.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (pinned) this.pins.delete(row.name);
-        else this.pins.add(row.name);
+        // Reload pins right before mutating so we never clobber pins
+        // saved by another mount with state captured at render time.
         void this.sx.storage
-          .saveData({ pins: [...this.pins] })
-          .then(() => this.render(root, rows));
+          .loadData()
+          .then((saved) => {
+            this.pins = new Set((saved && saved.pins) || []);
+            if (pinned) this.pins.delete(row.name);
+            else this.pins.add(row.name);
+            return this.sx.storage.saveData({ pins: [...this.pins] });
+          })
+          .then(() => this.render(root, rows))
+          .catch((err) => this.sx.ui.notice("Couldn't save pin: " + err));
       });
       item.append(pin);
       root.append(item);

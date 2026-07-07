@@ -51,7 +51,9 @@ export default class LibraryStats {
         byType.set(summary.type, (byType.get(summary.type) || 0) + 1);
         const key = summary.name + "@" + (summary.updatedAt || "");
         let entry = cache[key];
-        if (!entry) {
+        if (entry) {
+          fresh[key] = entry;
+        } else {
           try {
             const files = await this.sx.assets.readFiles(summary.name);
             entry = {
@@ -60,11 +62,13 @@ export default class LibraryStats {
                 .filter((f) => /\.(md|markdown)$/i.test(f.path))
                 .reduce((sum, f) => sum + words(f.content), 0),
             };
+            fresh[key] = entry;
           } catch {
+            // unreadable — show 0 this pass, but leave the cache entry
+            // absent so the next mount retries instead of trusting a failure
             entry = { files: 0, words: 0 };
           }
         }
-        fresh[key] = entry;
         totalWords += entry.words;
         totalFiles += entry.files;
         sizes.push({ name: summary.name, words: entry.words });
@@ -77,7 +81,9 @@ export default class LibraryStats {
       for (const e of audit) {
         if (!/publish/i.test(e.event)) continue;
         const age = Date.now() - new Date(e.timestamp).getTime();
-        const bucket = 11 - Math.min(11, Math.floor(age / (7 * 86400_000)));
+        // Older than the window drops out; it doesn't pile into bucket 0.
+        if (age < 0 || age >= 12 * 7 * 86400_000) continue;
+        const bucket = 11 - Math.floor(age / (7 * 86400_000));
         weekly[bucket]++;
       }
 

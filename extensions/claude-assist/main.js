@@ -30,6 +30,7 @@ const KEY_NAME = "anthropic-api-key";
 const MODELS = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"];
 const MAX_CONTEXT_ASSETS = 12;
 const MAX_ASSET_CHARS = 8000;
+const MAX_HISTORY_MESSAGES = 16; // sent to the API; the transcript keeps everything
 
 // ---- Retrieval: cheap, exact, explainable ----
 
@@ -66,7 +67,12 @@ function assetMarkdown(files) {
     )
     .map((f) => f.content)
     .join("\n\n");
-  return md.length > MAX_ASSET_CHARS ? md.slice(0, MAX_ASSET_CHARS) + "\n…" : md;
+  if (md.length <= MAX_ASSET_CHARS) return md;
+  // Cut on a code-point boundary — never split a surrogate pair.
+  let cut = MAX_ASSET_CHARS;
+  const last = md.charCodeAt(cut - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut -= 1;
+  return md.slice(0, cut) + "\n…";
 }
 
 export default class ClaudeAssist {
@@ -117,11 +123,23 @@ export default class ClaudeAssist {
   // ---- The one view: settings row, transcript, composer ----
 
   async mount(view) {
+    // Register disposal FIRST — the awaits below can outlive the view
+    // (dev-mode double mounts), and a dead mount must not claim
+    // this.rerender/this.composerState or append to a discarded DOM.
+    let disposed = false;
+    let composer = null;
+    let rerender = null;
+    view.onDispose(() => {
+      disposed = true;
+      if (rerender && this.rerender === rerender) this.rerender = null;
+      if (composer && this.composerState === composer) this.composerState = null;
+    });
     const root = view.el;
     root.style.cssText =
       "display: flex; flex-direction: column; height: 100%; max-width: 760px; gap: 10px;";
     const key = await this.sx.secrets.get(KEY_NAME).catch(() => "");
     const cfg = await this.config();
+    if (disposed) return;
 
     root.replaceChildren();
     root.appendChild(this.settingsRow(key, cfg));
@@ -131,11 +149,11 @@ export default class ClaudeAssist {
     scroller.appendChild(thread);
     root.appendChild(scroller);
 
-    const composer = this.composer(key);
+    composer = this.composer(key);
     root.appendChild(composer.row);
     this.composerState = composer;
 
-    this.rerender = () => {
+    rerender = () => {
       thread.replaceChildren();
       if (this.transcript.length === 0) {
         const hello = el(
@@ -156,10 +174,7 @@ export default class ClaudeAssist {
       for (const m of this.transcript) thread.appendChild(this.bubble(m));
       scroller.scrollTop = scroller.scrollHeight;
     };
-    view.onDispose(() => {
-      this.rerender = null;
-      this.composerState = null;
-    });
+    this.rerender = rerender;
     this.rerender();
     this.applyPendingMode();
     composer.input.focus();
@@ -229,7 +244,11 @@ export default class ClaudeAssist {
     const state = { row, input, mode: "ask" };
     const submit = () => {
       const q = input.value.trim();
-      if (!q || this.busy) return;
+      if (!q) return;
+      if (this.busy) {
+        this.sx.ui.notice("Claude is still responding — wait for this turn to finish");
+        return;
+      }
       input.value = "";
       if (state.mode === "new-skill") {
         state.mode = "ask";
@@ -317,6 +336,10 @@ export default class ClaudeAssist {
   }
 
   async critiqueOpenDraft() {
+    if (this.busy) {
+      this.sx.ui.notice("Claude is still responding — wait for this turn to finish");
+      return;
+    }
     let draft;
     try {
       draft = this.sx.editor.getValue();
@@ -400,9 +423,18 @@ export default class ClaudeAssist {
 
   // ---- The API call: direct, streamed, no SDK ----
 
+  /** Drop the just-pushed user turn so the API history keeps
+   * alternating roles after a failed request. */
+  popFailedTurn(messages) {
+    if (messages.length > 0 && messages[messages.length - 1].role === "user") {
+      messages.pop();
+    }
+  }
+
   async streamTurn(system, messages) {
     const key = await this.sx.secrets.get(KEY_NAME).catch(() => "");
     if (!key) {
+      this.popFailedTurn(messages);
       this.transcript.push({
         who: "note",
         text: "No API key yet — paste your Anthropic key in the field above.",
@@ -417,11 +449,15 @@ export default class ClaudeAssist {
     this.busy = true;
     this.rerender?.();
 
+    // Cap what goes over the wire; the transcript keeps the full chat.
+    // The window must still start on a user turn.
+    let history = messages.slice(-MAX_HISTORY_MESSAGES);
+    if (history[0]?.role === "assistant") history = history.slice(1);
     const body = {
       model,
       max_tokens: 8192,
       system,
-      messages,
+      messages: history,
       stream: true,
     };
     // Adaptive thinking exists on the Opus 4.7+ family only.
@@ -464,17 +500,21 @@ export default class ClaudeAssist {
           throw new Error(evt.error?.message || "stream error");
         }
       });
-      if (stopReason === "refusal") {
-        entry.text += "\n\n(Claude declined to answer this request.)";
-      } else if (stopReason === "max_tokens") {
-        entry.text += "\n\n(Response hit the length limit.)";
-      }
       entry.streaming = false;
-      this.rerender?.();
+      // History (and the returned text) get the RAW model output; the
+      // stop-reason annotations render as transcript notes only.
       messages.push({ role: "assistant", content: entry.text });
+      if (stopReason === "refusal") {
+        this.transcript.push({ who: "note", text: "(Claude declined to answer this request.)" });
+      } else if (stopReason === "max_tokens") {
+        this.transcript.push({ who: "note", text: "(Response hit the length limit.)" });
+      }
+      this.rerender?.();
       return entry.text;
     } catch (e) {
       entry.streaming = false;
+      // The turn failed — pop its user message so roles keep alternating.
+      this.popFailedTurn(messages);
       if (!entry.text) {
         // Nothing streamed — drop the empty bubble, keep only the note.
         const idx = this.transcript.indexOf(entry);

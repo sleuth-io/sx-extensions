@@ -79,18 +79,11 @@ const RULES = [
   {
     id: "fence-language",
     label: "Code fences declare a language",
-    check(lines) {
-      const findings = [];
-      let inFence = false;
-      lines.forEach((line, i) => {
-        const m = line.match(/^```(.*)$/);
-        if (!m) return;
-        if (!inFence && m[1].trim() === "") {
-          findings.push({ line: i + 1, message: "code fence without a language" });
-        }
-        inFence = !inFence;
-      });
-      return findings;
+    fences: true, // sees fence openings, which lintText strips from prose
+    check(opens) {
+      return opens
+        .filter((o) => o.info === "")
+        .map((o) => ({ line: o.line, message: "code fence without a language" }));
     },
   },
   {
@@ -99,10 +92,8 @@ const RULES = [
     defaultOff: true,
     check(lines) {
       const findings = [];
-      let inFence = false;
       lines.forEach((line, i) => {
-        if (/^```/.test(line)) inFence = !inFence;
-        else if (!inFence && line.length > 160) {
+        if (line.length > 160) {
           findings.push({ line: i + 1, message: line.length + " chars" });
         }
       });
@@ -115,6 +106,8 @@ export default class StyleLinter {
   onload(sx) {
     this.sx = sx;
     this.enabled = null; // rule id -> bool, lazily loaded
+    this.enabledPromise = null; // shared lazy init — one object for everyone
+    this.backdrop = null; // the Rules popup, if open
     sx.onBeforePublish((ctx) => this.lintPublish(ctx));
     sx.registerSidebarPanel({
       id: "style",
@@ -128,26 +121,61 @@ export default class StyleLinter {
     });
   }
 
-  onunload() {}
+  onunload() {
+    this.closeRulesPopup(); // never leak a full-screen backdrop
+  }
 
   async ruleConfig() {
-    if (!this.enabled) {
+    // Memoized as a shared promise so concurrent callers get the SAME
+    // object — Rules-popup toggles then affect the live config.
+    this.enabledPromise ??= (async () => {
       const saved = (await this.sx.storage.loadData().catch(() => null)) || {};
-      this.enabled = {};
+      const enabled = {};
       for (const rule of RULES) {
-        this.enabled[rule.id] = saved[rule.id] !== undefined ? saved[rule.id] : !rule.defaultOff;
+        enabled[rule.id] = saved[rule.id] !== undefined ? saved[rule.id] : !rule.defaultOff;
       }
-    }
+      return enabled;
+    })();
+    this.enabled = await this.enabledPromise;
     return this.enabled;
   }
 
   lintText(content, enabled) {
-    const lines = content.split("\n");
+    // Strip the leading frontmatter block and track fence state ONCE,
+    // here, so no rule ever sees frontmatter or fenced code. Prose
+    // rules get prose lines; the fence rule gets the fence openings;
+    // findings map back to real file line numbers before returning.
+    const all = content.split("\n");
+    let start = 0;
+    if (all[0] === "---") {
+      const close = all.findIndex((l, i) => i > 0 && l.trim() === "---");
+      if (close !== -1) start = close + 1;
+    }
+    const prose = []; // prose lines, in order
+    const proseLine = []; // prose index -> 1-based file line
+    const fenceOpens = []; // opening ``` lines: {line, info}
+    let inFence = false;
+    for (let i = start; i < all.length; i++) {
+      const line = all[i];
+      const m = line.match(/^```(.*)$/);
+      if (m) {
+        if (!inFence) fenceOpens.push({ line: i + 1, info: m[1].trim() });
+        inFence = !inFence;
+        continue;
+      }
+      if (inFence) continue;
+      prose.push(line);
+      proseLine.push(i + 1);
+    }
     const findings = [];
     for (const rule of RULES) {
       if (!enabled[rule.id]) continue;
-      for (const f of rule.check(lines)) {
-        findings.push({ rule, ...f });
+      for (const f of rule.fences ? rule.check(fenceOpens) : rule.check(prose)) {
+        findings.push({
+          rule,
+          ...f,
+          line: rule.fences ? f.line : proseLine[f.line - 1],
+        });
       }
     }
     return findings;
@@ -244,6 +272,8 @@ export default class StyleLinter {
   async mountPanel(view) {
     const enabled = await this.ruleConfig();
     view.el.replaceChildren();
+    // The popup belongs to this panel; take it down with the view.
+    view.onDispose(() => this.closeRulesPopup());
 
     const row = el("div", "display: flex; gap: 6px; padding: 0 2px;");
     const rulesLink = el(
@@ -276,7 +306,15 @@ export default class StyleLinter {
     );
   }
 
+  closeRulesPopup() {
+    if (this.backdrop) {
+      this.backdrop.remove();
+      this.backdrop = null;
+    }
+  }
+
   openRulesPopup(enabled) {
+    this.closeRulesPopup(); // at most one popup at a time
     const backdrop = el(
       "div",
       "position: fixed; inset: 0; z-index: 120; background: rgba(0,0,0,0.4);" +
@@ -322,13 +360,14 @@ export default class StyleLinter {
         "font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;",
       "Done",
     );
-    const close = () => backdrop.remove();
+    const close = () => this.closeRulesPopup();
     done.addEventListener("click", close);
     backdrop.addEventListener("mousedown", (e) => {
       if (e.target === backdrop) close();
     });
     sheet.append(done);
     backdrop.append(sheet);
+    this.backdrop = backdrop;
     document.body.append(backdrop);
   }
 

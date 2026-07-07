@@ -1,6 +1,6 @@
 [asset]
 name = "library-board"
-version = "1.0.0"
+version = "1.0.1"
 type = "app-plugin"
 description = "A full-page curation view: an editable metadata grid (owner, status, keywords across many assets at once) and a draft pipeline board with publish-stage warnings. Inspired by Obsidian's Projects, DB Folder, and Kanban."
 

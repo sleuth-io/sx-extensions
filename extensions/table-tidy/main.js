@@ -8,8 +8,10 @@ function isRow(line) {
 }
 
 function splitRow(line) {
-  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split("|").map((c) => c.trim());
+  // Only unescaped pipes delimit cells — `\|` is literal cell content
+  // and survives the round trip untouched.
+  const trimmed = line.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "");
+  return trimmed.split(/(?<!\\)\|/).map((c) => c.trim());
 }
 
 function isDelimiter(cells) {
@@ -48,26 +50,40 @@ export function formatTable(lines) {
   }
   const widths = [];
   for (let i = 0; i < cols; i++) {
+    // Floor keeps the delimiter's colons + 3 dashes inside the column:
+    // :---: needs 5, ---: needs 4.
+    const floor = aligns[i] === "center" ? 5 : aligns[i] === "right" ? 4 : 3;
     widths.push(
-      Math.max(3, ...rows.filter((_, ri) => ri !== 1).map((r) => width(r[i] || ""))),
+      Math.max(floor, ...rows.filter((_, ri) => ri !== 1).map((r) => width(r[i] || ""))),
     );
   }
   return rows.map((r, ri) => {
     if (ri === 1) {
       return "| " + aligns.map((a, i) => {
-        const dashes = "-".repeat(Math.max(3, widths[i] - (a === "center" ? 2 : a === "left" ? 0 : 1)));
-        return a === "center" ? ":" + dashes + ":" : a === "right" ? dashes + ":" : dashes + (aligns[i] === "left" ? "" : "");
+        const dashes = "-".repeat(widths[i] - (a === "center" ? 2 : a === "right" ? 1 : 0));
+        return a === "center" ? ":" + dashes + ":" : a === "right" ? dashes + ":" : dashes;
       }).join(" | ") + " |";
     }
     return "| " + aligns.map((a, i) => pad(r[i] || "", widths[i], a)).join(" | ") + " |";
   });
 }
 
-/** All table blocks in a document: [{start, end}] line ranges. */
+/** All table blocks in a document: [{start, end}] line ranges. Skips
+ * fenced code regions — a ``` example of a table is not a table. */
 function tableBlocks(lines) {
   const blocks = [];
   let start = -1;
+  let fenced = false;
   lines.forEach((line, i) => {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      if (start >= 0) {
+        blocks.push({ start, end: i });
+        start = -1;
+      }
+      return;
+    }
+    if (fenced) return;
     if (isRow(line)) {
       if (start < 0) start = i;
     } else if (start >= 0) {

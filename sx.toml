@@ -140,3 +140,108 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/review-rota/1"
+
+[[assets]]
+  name = "claude-assist"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/claude-assist/2"
+
+[[assets]]
+  name = "review-rota"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/review-rota/2"
+
+[[assets]]
+  name = "asset-relations"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-relations/2"
+
+[[assets]]
+  name = "team-digest"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-digest/2"
+
+[[assets]]
+  name = "table-tidy"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/table-tidy/2"
+
+[[assets]]
+  name = "draft-refactor"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/draft-refactor/2"
+
+[[assets]]
+  name = "metric-charts"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/metric-charts/2"
+
+[[assets]]
+  name = "library-board"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-board/2"
+
+[[assets]]
+  name = "asset-query"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-query/2"
+
+[[assets]]
+  name = "smart-templates"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/smart-templates/4"
+
+[[assets]]
+  name = "related-assets"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/related-assets/3"
+
+[[assets]]
+  name = "recent-assets"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/recent-assets/3"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/2"
+
+[[assets]]
+  name = "library-stats"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-stats/2"
+
+[[assets]]
+  name = "style-linter"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/style-linter/3"

@@ -66,6 +66,7 @@ export default class RelatedAssets {
   onload(sx) {
     this.sx = sx;
     this.corpus = null; // {builtAt, vectors: Map name -> {tf, summary}}
+    this.corpusPromise = null; // in-flight scan, shared by concurrent mounts
     sx.registerAssetTab({
       id: "related",
       title: "Related",
@@ -75,13 +76,23 @@ export default class RelatedAssets {
 
   onunload() {
     this.corpus = null;
+    this.corpusPromise = null;
   }
 
   /** Vectorize every asset once per minute at most; markdown only. */
-  async buildCorpus() {
+  buildCorpus() {
     if (this.corpus && Date.now() - this.corpus.builtAt < 60_000) {
-      return this.corpus;
+      return Promise.resolve(this.corpus);
     }
+    // Memoize the in-flight scan so a double mount shares one pass
+    // instead of reading every asset twice.
+    this.corpusPromise ??= this.scanCorpus().finally(() => {
+      this.corpusPromise = null;
+    });
+    return this.corpusPromise;
+  }
+
+  async scanCorpus() {
     const assets = await this.sx.assets.list();
     const vectors = new Map();
     for (const summary of assets) {

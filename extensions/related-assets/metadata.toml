@@ -1,6 +1,6 @@
 [asset]
 name = "related-assets"
-version = "1.0.1"
+version = "1.0.2"
 type = "app-plugin"
 description = "Shows the assets most similar to the one you're viewing, with the shared terms that drove each match. Inspired by Obsidian's Smart Connections."
 

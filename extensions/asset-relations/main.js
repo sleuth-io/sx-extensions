@@ -28,6 +28,7 @@ export default class AssetRelations {
   onload(sx) {
     this.sx = sx;
     this.index = null;
+    this.building = null; // in-flight build, shared by double mounts
     sx.registerAssetTab({
       id: "relations",
       title: "Relations",
@@ -43,6 +44,7 @@ export default class AssetRelations {
 
   onunload() {
     this.index = null;
+    this.building = null;
   }
 
   // ---- Index: name references + derived edges ----
@@ -51,6 +53,16 @@ export default class AssetRelations {
     if (this.index && Date.now() - this.index.builtAt < 60_000) {
       return this.index;
     }
+    // Memoize the in-flight build — a tab and a widget mounting together
+    // (or a dev-mode double mount) share one scan instead of running two.
+    if (this.building) return this.building;
+    this.building = this.buildIndex().finally(() => {
+      this.building = null;
+    });
+    return this.building;
+  }
+
+  async buildIndex() {
     const [assets, collections, events] = await Promise.all([
       this.sx.assets.list(),
       this.sx.assets.listCollections().catch(() => []),
@@ -80,7 +92,10 @@ export default class AssetRelations {
               ) {
                 tier = "mention";
               }
-              if (tier && !refs.some((r) => r.to === name && r.line === i + 1)) {
+              if (
+                tier &&
+                !refs.some((r) => r.to === name && r.file === f.path && r.line === i + 1)
+              ) {
                 refs.push({
                   to: name,
                   file: f.path,
@@ -145,9 +160,14 @@ export default class AssetRelations {
   // ---- Relations tab ----
 
   async mountTab(view, assetName) {
+    let disposed = false;
+    view.onDispose(() => {
+      disposed = true;
+    });
     view.el.replaceChildren(el("div", FAINT + "font-size: 12px;", "Mapping relations…"));
     try {
       const idx = await this.build();
+      if (disposed) return;
       view.el.replaceChildren();
       const sections = [
         ["References", (idx.out.get(assetName) || []).map((r) => ({
@@ -200,6 +220,7 @@ export default class AssetRelations {
         );
       }
     } catch (e) {
+      if (disposed) return;
       view.el.replaceChildren(
         el("div", FAINT + "font-size: 12px;", "Couldn't map relations: " + e),
       );
@@ -209,11 +230,16 @@ export default class AssetRelations {
   // ---- Structure-health widget ----
 
   async mountWidget(view) {
+    let disposed = false;
+    view.onDispose(() => {
+      disposed = true;
+    });
     view.el.replaceChildren(
       el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Analyzing structure…"),
     );
     try {
       const idx = await this.build();
+      if (disposed) return;
       view.el.replaceChildren();
       const hubs = [...idx.inbound.entries()]
         .map(([name, refs]) => ({ name, n: refs.length }))
@@ -264,6 +290,7 @@ export default class AssetRelations {
         view.el.append(el("div", "height: 10px;"));
       }
     } catch (e) {
+      if (disposed) return;
       view.el.replaceChildren(
         el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Couldn't analyze: " + e),
       );

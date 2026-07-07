@@ -34,6 +34,7 @@ const SHADE_ALPHA = ["0.18", "0.4", "0.65", "1"];
 export default class ActivityHeatmap {
   onload(sx) {
     this.sx = sx;
+    this.loadGen = 0; // a stale load must never paint over a newer one
     sx.registerDashboardWidget({
       id: "activity-heatmap",
       title: "Activity heatmap",
@@ -49,34 +50,42 @@ export default class ActivityHeatmap {
     view.el.replaceChildren(
       el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Loading a year of activity…"),
     );
+    await this.load(view.el);
+  }
+
+  /** Fetches and renders the metric current at call time. Failures
+   *  render in place; a stale load never paints over a newer one. */
+  async load(root) {
+    const metric = this.metric; // this.metric can change while we await
+    const gen = ++this.loadGen;
     try {
-      await this.load(view.el);
+      // Fetch the grid's full span: WEEKS*7 days plus up to 6 extra so
+      // the Sunday-aligned first column isn't falsely empty.
+      const events =
+        metric === "edits"
+          ? await this.sx.usage.auditEvents(WEEKS * 7 + 6)
+          : await this.sx.usage.events(WEEKS * 7 + 6);
+      if (gen !== this.loadGen) return;
+      // date -> {count, byAsset: Map, byTarget: Map}
+      const days = new Map();
+      for (const e of events) {
+        const key = e.timestamp.slice(0, 10);
+        const entry = days.get(key) || { count: 0, items: new Map() };
+        entry.count++;
+        const label = metric === "edits" ? e.event + " " + e.target : e.assetName;
+        entry.items.set(label, (entry.items.get(label) || 0) + 1);
+        days.set(key, entry);
+      }
+      this.render(root, days, metric);
     } catch (e) {
-      view.el.replaceChildren(
+      if (gen !== this.loadGen) return;
+      root.replaceChildren(
         el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Couldn't load activity: " + e),
       );
     }
   }
 
-  async load(root) {
-    const events =
-      this.metric === "edits"
-        ? await this.sx.usage.auditEvents(365)
-        : await this.sx.usage.events(365);
-    // date -> {count, byAsset: Map, byTarget: Map}
-    const days = new Map();
-    for (const e of events) {
-      const key = e.timestamp.slice(0, 10);
-      const entry = days.get(key) || { count: 0, items: new Map() };
-      entry.count++;
-      const label = this.metric === "edits" ? e.event + " " + e.target : e.assetName;
-      entry.items.set(label, (entry.items.get(label) || 0) + 1);
-      days.set(key, entry);
-    }
-    this.render(root, days);
-  }
-
-  render(root, days) {
+  render(root, days, metric) {
     root.replaceChildren();
 
     // Header: metric toggle + totals + streaks.
@@ -109,7 +118,7 @@ export default class ActivityHeatmap {
       el(
         "span",
         FAINT + "font-size: 11px;",
-        (this.metric === "edits" ? "library changes" : "asset uses") +
+        (metric === "edits" ? "library changes" : "asset uses") +
           " this year · streak " + streak + "d · longest " + longest + "d",
       ),
     );
@@ -118,15 +127,15 @@ export default class ActivityHeatmap {
       "margin-left: auto; background: none; border: 1px solid var(--color-line);" +
         "border-radius: 6px; padding: 2px 8px; font-size: 10px; cursor: pointer;" +
         "color: var(--color-ink-soft); font: inherit;",
-      this.metric === "edits" ? "show usage" : "show edits",
+      metric === "edits" ? "show usage" : "show edits",
     );
     toggle.addEventListener("click", () => {
-      this.metric = this.metric === "edits" ? "usage" : "edits";
+      this.metric = metric === "edits" ? "usage" : "edits";
       void this.sx.storage.saveData({ metric: this.metric });
       root.replaceChildren(
         el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Loading…"),
       );
-      void this.load(root);
+      void this.load(root); // load catches its own failures, like mount
     });
     header.append(toggle);
     root.append(header);
@@ -140,10 +149,16 @@ export default class ActivityHeatmap {
       "display: grid; grid-auto-flow: column; gap: 2px;" +
         `grid-template-rows: repeat(7, 8px); width: max-content;`,
     );
-    const today = new Date();
+    // UTC throughout: days are bucketed by timestamp.slice(0, 10) (a
+    // UTC date), so weekday alignment must use UTC too or the two
+    // conventions disagree near midnight.
+    const now = new Date();
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
     const start = new Date(today.getTime() - (WEEKS * 7 - 1) * DAY_MS);
     // Align the first column to start on a Sunday.
-    start.setDate(start.getDate() - start.getDay());
+    start.setUTCDate(start.getUTCDate() - start.getUTCDay());
     const detail = el("div", "padding: 0 12px 10px;");
     for (let d = new Date(start); d <= today; d = new Date(d.getTime() + DAY_MS)) {
       const key = dayKey(d);
@@ -164,9 +179,9 @@ export default class ActivityHeatmap {
             : "background: var(--color-line); opacity: 0.55;") +
           (key === dayKey(today) ? "outline: 1px solid var(--color-accent);" : ""),
       );
-      cell.title = key + " — " + (entry ? entry.count : 0) + (this.metric === "edits" ? " changes" : " uses");
+      cell.title = key + " — " + (entry ? entry.count : 0) + (metric === "edits" ? " changes" : " uses");
       if (entry) {
-        cell.addEventListener("click", () => this.showDay(detail, key, entry));
+        cell.addEventListener("click", () => this.showDay(detail, key, entry, metric));
       }
       grid.append(cell);
     }
@@ -176,13 +191,13 @@ export default class ActivityHeatmap {
     scroller.scrollLeft = scroller.scrollWidth;
   }
 
-  showDay(detail, key, entry) {
+  showDay(detail, key, entry, metric) {
     detail.replaceChildren();
     detail.append(
       el(
         "div",
         "font-size: 11px; font-weight: 600; padding: 4px 0 2px;",
-        key + " — " + entry.count + (this.metric === "edits" ? " changes" : " uses"),
+        key + " — " + entry.count + (metric === "edits" ? " changes" : " uses"),
       ),
     );
     const items = [...entry.items.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);

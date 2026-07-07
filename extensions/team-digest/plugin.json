@@ -1,7 +1,7 @@
 {
   "id": "team-digest",
   "name": "Team Digest",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "2.1.0",
   "description": "Generates a weekly library digest as a reviewable draft: what changed, usage risers and fallers, unadopted new assets, and stale-but-load-bearing skills. Inspired by Obsidian's Periodic Notes weekly-review workflow.",
   "author": "sx",
