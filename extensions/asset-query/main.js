@@ -143,18 +143,22 @@ export default class AssetQuery {
 
   async mount(view) {
     const saved = (await this.sx.storage.loadData().catch(() => null)) || {};
+    // The card root has no padding of its own; this wrapper keeps the
+    // editor and results off the card edges.
+    const box = el("div", "padding: 10px 12px;");
     const editor = el(
       "textarea",
-      "width: 100%; box-sizing: border-box; min-height: 56px; padding: 8px 10px;" +
-        "font-family: var(--font-mono); font-size: 11px; line-height: 1.5;" +
-        "border: none; border-bottom: 1px solid var(--color-line);" +
+      "width: 100%; box-sizing: border-box; min-height: 56px; padding: 6px 8px;" +
+        "font-family: var(--font-mono); font-size: 12px; line-height: 1.5;" +
+        "border: 1px solid var(--color-line); border-radius: 8px;" +
         "background: var(--color-canvas); color: var(--color-ink);" +
         "outline: none; resize: vertical;",
     );
     editor.value = saved.query || DEFAULT_QUERY;
     editor.spellcheck = false;
-    const out = el("div", "padding: 4px 12px 10px;");
-    view.el.append(editor, out);
+    const out = el("div", "padding: 4px 0 0;");
+    box.append(editor, out);
+    view.el.append(box);
 
     // Debounced input and ⌘↵ can overlap; loadRows is slow. Only the
     // latest run may render or persist — stale completions are dropped.

@@ -122,11 +122,12 @@ export default class ActivityHeatmap {
           " this year · streak " + streak + "d · longest " + longest + "d",
       ),
     );
+    // A text link, not a button — it shares the stats row's baseline
+    // and must not inflate its height.
     const toggle = el(
-      "button",
-      "margin-left: auto; background: none; border: 1px solid var(--color-line);" +
-        "border-radius: 6px; padding: 2px 8px; font-size: 10px; cursor: pointer;" +
-        "color: var(--color-ink-soft); font: inherit;",
+      "a",
+      "margin-left: auto; font-size: 11px; color: var(--color-accent);" +
+        "cursor: pointer; white-space: nowrap;",
       metric === "edits" ? "show usage" : "show edits",
     );
     toggle.addEventListener("click", () => {

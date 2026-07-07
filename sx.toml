@@ -259,3 +259,31 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/activity-heatmap/3"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/4"
+
+[[assets]]
+  name = "asset-query"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-query/3"
+
+[[assets]]
+  name = "team-digest"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-digest/3"
+
+[[assets]]
+  name = "asset-query"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-query/4"
