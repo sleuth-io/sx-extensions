@@ -84,3 +84,17 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/recent-assets/2"
+
+[[assets]]
+  name = "asset-relations"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-relations/1"
+
+[[assets]]
+  name = "team-digest"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-digest/1"

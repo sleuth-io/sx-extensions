@@ -18,6 +18,8 @@ rebuilt for a team AI-asset library.
 | **Library Stats** | Vault Statistics / Better Word Count | Assets/files/words big numbers, largest assets, publish sparkline |
 | **Smart Templates** | Templater (4.8M) / QuickAdd (1.9M) | `{{prompt:…}}` placeholder templates that scaffold new drafts |
 | **Style Linter** | Linter (1.0M) | Toggleable formatting rules at publish time, a per-asset Style tab, and whole-library lint |
+| **Asset Relations** | Strange New Worlds + Breadcrumbs | Referenced-by tab, orphans-and-hubs widget, broken-reference and edit-impact publish warnings |
+| **Team Digest** | Periodic Notes (709k) | Weekly library digest generated as a reviewable draft: changes, usage movers, attention items |
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
