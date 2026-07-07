@@ -21,10 +21,14 @@ const STOPWORDS = new Set(
 function tokenize(text) {
   return text
     .toLowerCase()
+    .replace(/^---[\s\S]*?\n---\n?/, " ") // frontmatter keys aren't prose
     .replace(/```[\s\S]*?```/g, " ") // fenced code is noise for prose similarity
     .replace(/[^a-z0-9_\-\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2 && w.length < 40 && !STOPWORDS.has(w));
+    .filter(
+      (w) =>
+        w.length > 2 && w.length < 40 && /^[a-z]/.test(w) && !STOPWORDS.has(w),
+    );
 }
 
 /** term -> tf map, normalized by document length. */
@@ -85,9 +89,13 @@ export default class RelatedAssets {
         const files = await this.sx.assets.readFiles(summary.name);
         const text = files
           .filter((f) => /\.(md|markdown)$/i.test(f.path))
-          .map((f) => f.content)
+          .map((f) => tokenize(f.content).join(" "))
           .join("\n");
-        const tokens = tokenize(summary.name + " " + summary.description + " " + text);
+        const tokens = (
+          tokenize(summary.name + " " + summary.description).join(" ") +
+          " " +
+          text
+        ).split(/\s+/).filter(Boolean);
         if (tokens.length > 0) {
           vectors.set(summary.name, { tf: termFrequencies(tokens), summary });
         }
