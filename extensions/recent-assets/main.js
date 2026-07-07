@@ -42,7 +42,9 @@ export default class RecentAssets {
   onunload() {}
 
   async mount(view) {
-    view.el.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading…"));
+    view.el.replaceChildren(
+      el("div", FAINT + "font-size: 11px; padding: 2px 8px;", "Loading…"),
+    );
     try {
       const [saved, events, assets] = await Promise.all([
         this.sx.storage.loadData(),
@@ -89,7 +91,11 @@ export default class RecentAssets {
       this.render(view.el, rows);
     } catch (e) {
       view.el.replaceChildren(
-        el("div", FAINT + "font-size: 12px;", "Couldn't load recent activity: " + e),
+        el(
+          "div",
+          FAINT + "font-size: 11px; padding: 2px 8px; line-height: 1.5;",
+          "Couldn't load recent activity: " + e,
+        ),
       );
     }
   }
@@ -97,8 +103,14 @@ export default class RecentAssets {
   render(root, rows) {
     root.replaceChildren();
     if (rows.length === 0) {
+      // Match the sidebar's section-label indentation so the empty
+      // state doesn't float loose in the nav.
       root.append(
-        el("div", FAINT + "font-size: 12px;", "No activity in the last 30 days."),
+        el(
+          "div",
+          FAINT + "font-size: 11px; padding: 2px 8px; line-height: 1.5;",
+          "No activity in the last 30 days.",
+        ),
       );
       return;
     }

@@ -12,13 +12,16 @@ rebuilt for a team AI-asset library.
 | Extension | Inspired by | What it adds |
 | --- | --- | --- |
 | **Asset Query** | Dataview (4.5M downloads) | Pinnable live query tables over assets, frontmatter, and usage fields |
-| **Library Search** | Omnisearch (1.6M) | Ranked full-text search with field boosts and highlighted excerpts |
 | **Related Assets** | Smart Connections (1.1M) | TF-IDF similar-asset tab with the shared terms that drove each match |
 | **Recent Assets** | Recent Files | Team-wide recently-touched sidebar with pinning |
 | **Activity Heatmap** | Heatmap Calendar | GitHub-style year grid of usage or edits, streaks, day drill-down |
 | **Library Stats** | Vault Statistics / Better Word Count | Assets/files/words big numbers, largest assets, publish sparkline |
 | **Smart Templates** | Templater (4.8M) / QuickAdd (1.9M) | `{{prompt:…}}` placeholder templates that scaffold new drafts |
-| **Style Linter** | Linter (1.0M) | Toggleable formatting rules at publish time plus whole-library lint |
+| **Style Linter** | Linter (1.0M) | Toggleable formatting rules at publish time, a per-asset Style tab, and whole-library lint |
+
+An earlier **Library Search** extension (Omnisearch-inspired) was retired:
+ranked full-text content search is built into the sx app's main search box
+as of 2.1.0.
 
 ## Installing
 

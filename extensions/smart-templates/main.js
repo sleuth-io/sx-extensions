@@ -106,12 +106,34 @@ export default class SmartTemplates {
   renderPicker(root, templates) {
     root.replaceChildren();
     if (templates.length === 0) {
-      const empty = el(
-        "div",
-        FAINT + "font-size: 11px; line-height: 1.5;",
-        "No templates yet. Add `template: true` to any asset's frontmatter " +
-          "and it appears here, placeholders and all — {{date}}, " +
-          "{{prompt:audience}}, {{choose:tier|core,extra}}.",
+      const empty = el("div", "padding: 2px 8px;");
+      empty.append(
+        el(
+          "div",
+          FAINT + "font-size: 11px; line-height: 1.5; margin-bottom: 6px;",
+          "No templates yet.",
+        ),
+        el(
+          "div",
+          FAINT + "font-size: 11px; line-height: 1.5;",
+          "Mark any asset as a template by adding this to its frontmatter:",
+        ),
+        el(
+          "pre",
+          "margin: 6px 0; padding: 6px 8px; border: 1px solid var(--color-line);" +
+            "border-radius: 8px; background: var(--color-canvas);" +
+            "font-family: var(--font-mono); font-size: 10px; line-height: 1.6;" +
+            "color: var(--color-ink-soft); overflow-x: auto;",
+          "template: true",
+        ),
+        el(
+          "div",
+          FAINT + "font-size: 11px; line-height: 1.5;",
+          "It then appears here as a form: placeholders like {{date}}, " +
+            "{{prompt:audience}} and {{choose:tier|core,extra}} become " +
+            "fields you fill in, and Create makes a new draft with " +
+            "everything substituted.",
+        ),
       );
       root.append(empty);
       return;
