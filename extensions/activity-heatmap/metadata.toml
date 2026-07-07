@@ -1,6 +1,6 @@
 [asset]
 name = "activity-heatmap"
-version = "1.0.1"
+version = "1.0.2"
 type = "app-plugin"
 description = "A GitHub-style year heatmap of library activity on the dashboard — usage or edits, with streaks and per-day drill-down. Inspired by Obsidian's Heatmap Calendar."
 

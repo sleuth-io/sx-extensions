@@ -252,3 +252,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/library-board/3"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/3"

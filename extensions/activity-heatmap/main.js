@@ -37,7 +37,7 @@ export default class ActivityHeatmap {
     this.loadGen = 0; // a stale load must never paint over a newer one
     sx.registerDashboardWidget({
       id: "activity-heatmap",
-      title: "Activity heatmap",
+      title: "Activity heatmap · last year",
       mount: (view) => void this.mount(view),
     });
   }
