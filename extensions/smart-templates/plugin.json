@@ -1,0 +1,9 @@
+{
+  "id": "smart-templates",
+  "name": "Smart Templates",
+  "version": "1.0.0",
+  "minAppVersion": "2.1.0",
+  "description": "Turn any asset into a fill-in template: {{date}}, {{prompt:...}} and {{choose:...}} placeholders become a form that scaffolds a new draft. Inspired by Obsidian's Templater and QuickAdd.",
+  "author": "sx",
+  "permissions": ["assets:read", "drafts:write", "views:sidebar"]
+}

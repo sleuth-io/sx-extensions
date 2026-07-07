@@ -1,0 +1,58 @@
+schema_version = 2
+created_by = "skills/v2.0.0-19-g8b434ae-dirty"
+
+[[assets]]
+  name = "related-assets"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/related-assets/1"
+
+[[assets]]
+  name = "library-search"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-search/1"
+
+[[assets]]
+  name = "asset-query"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-query/1"
+
+[[assets]]
+  name = "recent-assets"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/recent-assets/1"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/1"
+
+[[assets]]
+  name = "library-stats"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-stats/1"
+
+[[assets]]
+  name = "smart-templates"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/smart-templates/1"
+
+[[assets]]
+  name = "style-linter"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/style-linter/1"

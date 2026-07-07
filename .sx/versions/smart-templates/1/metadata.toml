@@ -1,0 +1,9 @@
+[asset]
+  name = "smart-templates"
+  version = "1"
+  type = "app-plugin"
+  description = "Turn any asset into a fill-in template: {{date}}, {{prompt:...}} and {{choose:...}} placeholders become a form that scaffolds a new draft. Inspired by Obsidian's Templater and QuickAdd."
+
+[app-plugin]
+  entry = "main.js"
+  permissions = ["assets:read", "drafts:write", "views:sidebar"]

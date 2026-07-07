@@ -1,0 +1,9 @@
+{
+  "id": "related-assets",
+  "name": "Related Assets",
+  "version": "1.0.0",
+  "minAppVersion": "2.1.0",
+  "description": "Shows the assets most similar to the one you're viewing, with the shared terms that drove each match. Inspired by Obsidian's Smart Connections.",
+  "author": "sx",
+  "permissions": ["assets:read", "views:asset-tab"]
+}

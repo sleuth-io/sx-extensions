@@ -1,0 +1,9 @@
+{
+  "id": "library-search",
+  "name": "Library Search",
+  "version": "1.0.0",
+  "minAppVersion": "2.1.0",
+  "description": "Ranked full-text search across every asset's content — names, descriptions, headings, and body — with highlighted excerpts. Inspired by Obsidian's Omnisearch.",
+  "author": "sx",
+  "permissions": ["assets:read", "usage:read", "views:sidebar"]
+}

@@ -1,0 +1,9 @@
+[asset]
+name = "library-search"
+version = "1.0.0"
+type = "app-plugin"
+description = "Ranked full-text search across every asset's content — names, descriptions, headings, and body — with highlighted excerpts. Inspired by Obsidian's Omnisearch."
+
+[app-plugin]
+entry = "main.js"
+permissions = ["assets:read", "usage:read", "views:sidebar"]

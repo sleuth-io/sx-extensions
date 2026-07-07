@@ -1,0 +1,9 @@
+{
+  "id": "library-stats",
+  "name": "Library Stats",
+  "version": "1.0.0",
+  "minAppVersion": "2.1.0",
+  "description": "Big-number dashboard stats for the library: assets by type, total words, the largest assets, and a 12-week publish sparkline. Inspired by Obsidian's Vault Statistics and Better Word Count.",
+  "author": "sx",
+  "permissions": ["assets:read", "usage:read", "views:dashboard"]
+}
