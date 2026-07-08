@@ -399,3 +399,24 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/review-rota/3"
+
+[[assets]]
+  name = "collection-doctor"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/collection-doctor/1"
+
+[[assets]]
+  name = "collection-export"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/collection-export/1"
+
+[[assets]]
+  name = "collection-readme"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/collection-readme/1"
