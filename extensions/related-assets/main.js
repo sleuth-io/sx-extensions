@@ -39,6 +39,18 @@ function termFrequencies(tokens) {
   return tf;
 }
 
+/** Run fn over items with at most n in flight — a full-library scan
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 function cosine(a, b) {
   let dot = 0;
   let na = 0;
@@ -93,9 +105,31 @@ export default class RelatedAssets {
   }
 
   async scanCorpus() {
-    const assets = await this.sx.assets.list();
+    const [assets, saved] = await Promise.all([
+      this.sx.assets.list(),
+      this.sx.storage.loadData().catch(() => null),
+    ]);
+    // Persistent per-asset cache of derived vectors, keyed by updatedAt —
+    // an unchanged asset is never re-read across restarts.
+    const prior = (saved && saved.scanCache) || {};
+    const scanCache = {};
     const vectors = new Map();
+    let cacheDirty = false;
+    const stale = [];
     for (const summary of assets) {
+      const stamp = summary.updatedAt || summary.version || summary.name;
+      const hit = prior[summary.name];
+      if (hit && hit.stamp === stamp) {
+        // Rebuild the vector from cached [term, tf] pairs — no file reads.
+        if (hit.data.length > 0) {
+          vectors.set(summary.name, { tf: new Map(hit.data), summary });
+        }
+        scanCache[summary.name] = hit;
+      } else {
+        stale.push({ summary, stamp });
+      }
+    }
+    await pool(stale, 8, async ({ summary, stamp }) => {
       try {
         const files = await this.sx.assets.readFiles(summary.name);
         const text = files
@@ -107,14 +141,35 @@ export default class RelatedAssets {
           " " +
           text
         ).split(/\s+/).filter(Boolean);
-        if (tokens.length > 0) {
-          vectors.set(summary.name, { tf: termFrequencies(tokens), summary });
+        // Keep only the top 60 terms by weight. Similarity from truncated
+        // vectors is an approximation, but the tail carries almost no
+        // cosine mass — and full vectors would blow the 1MB storage cap.
+        const top = [...termFrequencies(tokens)]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 60);
+        if (top.length > 0) {
+          vectors.set(summary.name, { tf: new Map(top), summary });
         }
+        scanCache[summary.name] = { stamp, data: top };
+        cacheDirty = true;
       } catch {
-        // unreadable asset — skip, never break the tab
+        // unreadable asset — skip, never break the tab; no cache entry
+        // either, so the next scan retries instead of trusting a failure
       }
+    });
+    // Assets that vanished take their cache entries with them.
+    if (Object.keys(prior).some((name) => !(name in scanCache))) {
+      cacheDirty = true;
+    }
+    if (cacheDirty) {
+      // Best effort, preserving whatever else lives in this storage doc —
+      // an oversized or failed save must never break the tab.
+      void this.sx.storage
+        .saveData({ ...(saved || {}), scanCache })
+        .catch(() => {});
     }
     // Inverse document frequency turns raw tf into tf-idf weights.
+    // Recomputed from the cached vectors each run — cheap, in-memory.
     const df = new Map();
     for (const { tf } of vectors.values()) {
       for (const term of tf.keys()) df.set(term, (df.get(term) || 0) + 1);

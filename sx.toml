@@ -322,3 +322,17 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/draft-refactor/3"
+
+[[assets]]
+  name = "related-assets"
+  version = "5"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/related-assets/5"
+
+[[assets]]
+  name = "asset-relations"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-relations/3"

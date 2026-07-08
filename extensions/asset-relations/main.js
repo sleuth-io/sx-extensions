@@ -24,6 +24,18 @@ function distinctive(name) {
   return name.includes("-") || name.length >= 8;
 }
 
+/** Run fn over items with at most n in flight — a full-library scan
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 export default class AssetRelations {
   onload(sx) {
     this.sx = sx;
@@ -63,17 +75,36 @@ export default class AssetRelations {
   }
 
   async buildIndex() {
-    const [assets, collections, events] = await Promise.all([
+    const [assets, collections, events, saved] = await Promise.all([
       this.sx.assets.list(),
       this.sx.assets.listCollections().catch(() => []),
       this.sx.usage.events(30).catch(() => []),
+      this.sx.storage.loadData().catch(() => null),
     ]);
     const names = assets.map((a) => a.name);
     const nameSet = new Set(names);
+    // Persistent per-asset cache of extracted refs, keyed by updatedAt —
+    // an unchanged asset is never re-read across restarts. (Cached edges
+    // can lag when a brand-new asset name appears in old prose; they
+    // refresh as soon as the source asset changes.)
+    const prior = (saved && saved.scanCache) || {};
+    const scanCache = {};
+    let cacheDirty = false;
     // out.get(A) = [{to, line, context, tier}] — A's markdown mentions `to`.
     const out = new Map();
     const inbound = new Map();
+    const stale = [];
     for (const summary of assets) {
+      const stamp = summary.updatedAt || summary.version || summary.name;
+      const hit = prior[summary.name];
+      if (hit && hit.stamp === stamp) {
+        out.set(summary.name, hit.data);
+        scanCache[summary.name] = hit;
+      } else {
+        stale.push({ summary, stamp });
+      }
+    }
+    await pool(stale, 8, async ({ summary, stamp }) => {
       const refs = [];
       try {
         const files = await this.sx.assets.readFiles(summary.name);
@@ -107,13 +138,29 @@ export default class AssetRelations {
             }
           });
         }
+        scanCache[summary.name] = { stamp, data: refs };
+        cacheDirty = true;
       } catch {
-        // unreadable asset — no edges from it
+        // unreadable asset — no edges from it, and no cache entry either,
+        // so the next build retries instead of trusting a failure
       }
       out.set(summary.name, refs);
+    });
+    // Assets that vanished take their cache entries with them.
+    if (Object.keys(prior).some((name) => !(name in scanCache))) {
+      cacheDirty = true;
+    }
+    if (cacheDirty) {
+      // Best effort, preserving whatever else lives in this storage doc —
+      // an oversized or failed save must never break the index.
+      void this.sx.storage
+        .saveData({ ...(saved || {}), scanCache })
+        .catch(() => {});
+    }
+    for (const [from, refs] of out) {
       for (const r of refs) {
         const list = inbound.get(r.to) || [];
-        list.push({ from: summary.name, ...r });
+        list.push({ from, ...r });
         inbound.set(r.to, list);
       }
     }
