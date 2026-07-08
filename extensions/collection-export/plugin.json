@@ -2,7 +2,7 @@
   "id": "collection-export",
   "name": "Collection Export",
   "version": "1.0.0",
-  "minAppVersion": "2.2.0",
+  "minAppVersion": "2.1.1",
   "description": "Exports a collection as a Claude Code plugin, Codex plugin, Gemini extension, or plain zip, right from the collection view. Inspired by Longform's compile step.",
   "author": "sx",
   "permissions": [

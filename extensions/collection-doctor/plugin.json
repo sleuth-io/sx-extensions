@@ -2,7 +2,7 @@
   "id": "collection-doctor",
   "name": "Collection Doctor",
   "version": "1.0.0",
-  "minAppVersion": "2.2.0",
+  "minAppVersion": "2.1.1",
   "description": "Scores a collection's health 0-100 with clickable findings: thin descriptions, stale or unused assets, and oversized skills. Inspired by Obsidian's Zoottelkeeper and folder-health plugins.",
   "author": "sx",
   "permissions": [
