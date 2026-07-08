@@ -1,0 +1,13 @@
+{
+  "id": "collection-readme",
+  "name": "Collection Readme",
+  "version": "1.0.0",
+  "minAppVersion": "2.2.0",
+  "description": "Generates a markdown index of a collection — grouped by type, one line per asset, install hint included — to copy or save as a README draft. Inspired by Obsidian's Waypoint and Folder Notes.",
+  "author": "sx",
+  "permissions": [
+    "views:collection",
+    "assets:read",
+    "drafts:write"
+  ]
+}
