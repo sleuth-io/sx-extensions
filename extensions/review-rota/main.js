@@ -109,14 +109,16 @@ export default class ReviewRota {
 
   // ---- Rota computation ----
 
-  async rows() {
-    const [assets, events, userStats, teams, me, state] = await Promise.all([
+  /** Everything the rota needs EXCEPT shared state, fetched once per
+   * mount. Verdicts only mutate shared state, so a post-verdict redraw
+   * reloads just that — not assets, usage, and teams all over again. */
+  async loadBase() {
+    const [assets, events, userStats, teams, me] = await Promise.all([
       this.sx.assets.list(),
       this.sx.usage.events(90),
       this.sx.usage.userStats(30),
       this.sx.teams.list().catch(() => []),
       this.sx.app.currentUser().catch(() => ""),
-      this.state(),
     ]);
     const use90 = new Map();
     const use30 = new Map();
@@ -132,6 +134,12 @@ export default class ReviewRota {
     let pool = [...new Set(teams.flatMap((t) => t.members))];
     if (pool.length === 0) pool = [...(userStats.knownUsers || [])];
     pool.sort();
+    return { assets, use90, use30, pool, me };
+  }
+
+  async rows(base) {
+    const { assets, use90, use30, pool } = base;
+    const state = await this.state();
 
     const now = Date.now();
     const rows = [];
@@ -160,7 +168,7 @@ export default class ReviewRota {
       });
     }
     rows.sort((x, y) => y.priority - x.priority || x.due - y.due);
-    return { rows, me };
+    return rows;
   }
 
   // ---- Verdicts ----
@@ -258,9 +266,12 @@ export default class ReviewRota {
     view.onDispose(() => {
       disposed = true;
     });
+    const base = await this.loadBase();
+    const me = base.me;
+    this.myEmail = me;
+    if (disposed) return;
     const draw = async () => {
-      const { rows, me } = await this.rows();
-      this.myEmail = me;
+      const rows = await this.rows(base);
       if (disposed) return;
       root.replaceChildren();
 

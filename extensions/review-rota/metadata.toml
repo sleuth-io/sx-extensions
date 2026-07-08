@@ -1,6 +1,6 @@
 [asset]
 name = "review-rota"
-version = "1.0.1"
+version = "1.0.2"
 type = "app-plugin"
 description = "Keeps your library reviewed: every asset gets a review due date that adapts to how heavily it's used, reviews rotate fairly across the team, and verdicts (reviewed, needs update, deprecate) are shared with everyone. Publishing an asset resets its clock."
 

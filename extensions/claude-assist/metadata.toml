@@ -1,6 +1,6 @@
 [asset]
 name = "claude-assist"
-version = "1.0.2"
+version = "1.0.3"
 type = "app-plugin"
 description = "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the Claude API with your own key, stored in your OS keychain."
 

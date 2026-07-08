@@ -40,6 +40,18 @@ function formatDate(fmt) {
 
 const PLACEHOLDER = /\{\{\s*(date|name|prompt|choose)(?::([^}|]*))?(?:\|([^}]*))?\s*\}\}/g;
 
+/** Run fn over items with at most n in flight — a full-library scan
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 /** Split content into its leading --- frontmatter block and the rest.
  * Returns null when the file doesn't open with a frontmatter fence —
  * `template: true` in the body text must not make an asset a template. */
@@ -90,19 +102,57 @@ export default class SmartTemplates {
   async mount(view) {
     view.el.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading templates…"));
     try {
-      const assets = await this.sx.assets.list();
-      const templates = [];
+      const [assets, saved] = await Promise.all([
+        this.sx.assets.list(),
+        this.sx.storage.loadData().catch(() => null),
+      ]);
+      // Persistent per-asset cache of the template flag, keyed by
+      // updatedAt — an unchanged asset is never re-read across mounts
+      // or restarts. Template files load lazily when a form opens.
+      const prior = (saved && saved.scanCache) || {};
+      const scanCache = {};
+      let cacheDirty = false;
+      const flagged = new Map(); // name -> {isTemplate, files|null}
+      const stale = [];
       for (const summary of assets) {
+        const stamp = summary.updatedAt || summary.version || summary.name;
+        const hit = prior[summary.name];
+        if (hit && hit.stamp === stamp) {
+          flagged.set(summary.name, { isTemplate: hit.data, files: null });
+          scanCache[summary.name] = hit;
+        } else {
+          stale.push({ summary, stamp });
+        }
+      }
+      await pool(stale, 8, async ({ summary, stamp }) => {
         try {
           const files = await this.sx.assets.readFiles(summary.name);
           const first = files.find((f) => /\.(md|markdown)$/i.test(f.path));
           const fm = first ? splitFrontmatter(first.content) : null;
-          if (fm && /^template:\s*true\s*$/m.test(fm.block)) {
-            templates.push({ summary, files });
-          }
+          const isTemplate = !!(fm && /^template:\s*true\s*$/m.test(fm.block));
+          flagged.set(summary.name, { isTemplate, files });
+          scanCache[summary.name] = { stamp, data: isTemplate };
+          cacheDirty = true;
         } catch {
-          // unreadable asset — not a template
+          // unreadable asset — not a template; no cache entry either,
+          // so the next scan retries instead of trusting a failure
         }
+      });
+      // Assets that vanished take their cache entries with them.
+      if (Object.keys(prior).some((name) => !(name in scanCache))) {
+        cacheDirty = true;
+      }
+      if (cacheDirty) {
+        // Best effort, preserving the remembered form values that share
+        // this storage doc — a failed save must never break the panel.
+        void this.sx.storage
+          .saveData({ ...(saved || {}), scanCache })
+          .catch(() => {});
+      }
+      const templates = [];
+      for (const summary of assets) {
+        const f = flagged.get(summary.name);
+        if (f && f.isTemplate) templates.push({ summary, files: f.files });
       }
       this.renderPicker(view.el, templates);
     } catch (e) {
@@ -165,6 +215,18 @@ export default class SmartTemplates {
   }
 
   async renderForm(root, templates, t) {
+    if (!t.files) {
+      // Cache-hit templates skip the file read at scan time; fetch the
+      // real content now, once, when the form actually opens.
+      root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading template…"));
+      try {
+        t.files = await this.sx.assets.readFiles(t.summary.name);
+      } catch (e) {
+        this.sx.ui.notice("Couldn't load the template: " + e);
+        this.renderPicker(root, templates);
+        return;
+      }
+    }
     const allText = t.files.map((f) => f.content).join("\n");
     const vars = scanVariables(allText);
     const saved = (await this.sx.storage.loadData().catch(() => null)) || {};

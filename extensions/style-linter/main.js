@@ -16,6 +16,18 @@ function el(tag, style, text) {
 
 const FAINT = "color: var(--color-ink-faint);";
 
+/** Run fn over items with at most n in flight — a full-library lint
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 const RULES = [
   {
     id: "heading-skip",
@@ -345,7 +357,13 @@ export default class StyleLinter {
       box.checked = !!enabled[rule.id];
       box.addEventListener("change", () => {
         enabled[rule.id] = box.checked;
-        void this.sx.storage.saveData(enabled);
+        // Merge into the stored doc — the library-lint scan cache lives
+        // in the same document and must survive a rule toggle.
+        void this.sx.storage
+          .loadData()
+          .catch(() => null)
+          .then((saved) => this.sx.storage.saveData({ ...(saved || {}), ...enabled }))
+          .catch(() => {});
       });
       row.append(box, document.createTextNode(rule.label));
       if (rule.defaultOff) {
@@ -376,17 +394,64 @@ export default class StyleLinter {
     button.textContent = "Linting…";
     report.replaceChildren();
     try {
-      const assets = await this.sx.assets.list();
+      const [assets, saved] = await Promise.all([
+        this.sx.assets.list(),
+        this.sx.storage.loadData().catch(() => null),
+      ]);
+      // Persistent per-asset cache of finding counts BY RULE, keyed by
+      // updatedAt — an unchanged asset is never re-read across lints or
+      // restarts. Counts are computed with every rule on and filtered
+      // by the enabled set below, so toggling rules never invalidates.
+      const prior = (saved && saved.scanCache) || {};
+      const scanCache = {};
+      const counts = new Map(); // name -> { ruleId: n }
+      let cacheDirty = false;
+      const allOn = {};
+      for (const rule of RULES) allOn[rule.id] = true;
+      const stale = [];
+      for (const summary of assets) {
+        const stamp = summary.updatedAt || summary.version || summary.name;
+        const hit = prior[summary.name];
+        if (hit && hit.stamp === stamp) {
+          counts.set(summary.name, hit.data);
+          scanCache[summary.name] = hit;
+        } else {
+          stale.push({ summary, stamp });
+        }
+      }
+      await pool(stale, 8, async ({ summary, stamp }) => {
+        try {
+          const byRule = {};
+          for (const f of await this.lintAsset(summary.name, allOn)) {
+            byRule[f.rule.id] = (byRule[f.rule.id] || 0) + 1;
+          }
+          counts.set(summary.name, byRule);
+          scanCache[summary.name] = { stamp, data: byRule };
+          cacheDirty = true;
+        } catch {
+          // unreadable asset — skip; no cache entry either, so the next
+          // lint retries instead of trusting a failure
+        }
+      });
+      // Assets that vanished take their cache entries with them.
+      if (Object.keys(prior).some((name) => !(name in scanCache))) {
+        cacheDirty = true;
+      }
+      if (cacheDirty) {
+        // Best effort, preserving the rule toggles that share this doc.
+        void this.sx.storage
+          .saveData({ ...(saved || {}), scanCache })
+          .catch(() => {});
+      }
       let clean = 0;
       const dirty = [];
-      for (const summary of assets) {
-        try {
-          const count = (await this.lintAsset(summary.name, enabled)).length;
-          if (count === 0) clean++;
-          else dirty.push({ name: summary.name, count });
-        } catch {
-          // unreadable asset — skip
+      for (const [name, byRule] of counts) {
+        let count = 0;
+        for (const [ruleId, n] of Object.entries(byRule)) {
+          if (enabled[ruleId]) count += n;
         }
+        if (count === 0) clean++;
+        else dirty.push({ name, count });
       }
       dirty.sort((a, b) => b.count - a.count);
       report.append(

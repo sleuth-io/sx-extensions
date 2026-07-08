@@ -47,6 +47,11 @@ export default class ActivityHeatmap {
   async mount(view) {
     const saved = (await this.sx.storage.loadData().catch(() => null)) || {};
     this.metric = saved.metric === "edits" ? "edits" : "usage";
+    // Per-mount cache: usage and edits come from different endpoints, so
+    // the first toggle to each metric fetches — but toggling BACK to a
+    // metric already loaded this mount reuses it instead of pulling a
+    // year of events over the bridge again.
+    this.dayCache = {};
     view.el.replaceChildren(
       el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Loading a year of activity…"),
     );
@@ -58,6 +63,11 @@ export default class ActivityHeatmap {
   async load(root) {
     const metric = this.metric; // this.metric can change while we await
     const gen = ++this.loadGen;
+    const cached = this.dayCache[metric];
+    if (cached) {
+      this.render(root, cached, metric);
+      return;
+    }
     try {
       // Fetch the grid's full span: WEEKS*7 days plus up to 6 extra so
       // the Sunday-aligned first column isn't falsely empty.
@@ -76,6 +86,7 @@ export default class ActivityHeatmap {
         entry.items.set(label, (entry.items.get(label) || 0) + 1);
         days.set(key, entry);
       }
+      this.dayCache[metric] = days; // successes only — failures retry
       this.render(root, days, metric);
     } catch (e) {
       if (gen !== this.loadGen) return;

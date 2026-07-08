@@ -69,6 +69,18 @@ function compare(a, b) {
   return String(a).localeCompare(String(b));
 }
 
+/** Run fn over items with at most n in flight — a full-library scan
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 function matches(row, cond) {
   const val = row[cond.field];
   const have = val === undefined || val === null ? "" : val;
@@ -100,7 +112,7 @@ export default class AssetQuery {
 
   onunload() {}
 
-  async loadRows() {
+  async loadRows(saved) {
     const [assets, events] = await Promise.all([
       this.sx.assets.list(),
       this.sx.usage.events(30).catch(() => []),
@@ -113,26 +125,62 @@ export default class AssetQuery {
       if (e.timestamp > u.last) u.last = e.timestamp;
       usage.set(e.assetName, u);
     }
-    const rows = [];
+    // Persistent per-asset cache of derived {fm, files}, keyed by
+    // updatedAt — an unchanged asset is never re-read across runs,
+    // mounts, or restarts.
+    const prior = (saved && saved.scanCache) || {};
+    const scanCache = {};
+    const derived = new Map(); // name -> {fm, files}
+    let cacheDirty = false;
+    const stale = [];
     for (const summary of assets) {
-      let frontmatter = {};
-      let files = 0;
+      const stamp = summary.updatedAt || summary.version || summary.name;
+      const hit = prior[summary.name];
+      if (hit && hit.stamp === stamp) {
+        derived.set(summary.name, hit.data);
+        scanCache[summary.name] = hit;
+      } else {
+        stale.push({ summary, stamp });
+      }
+    }
+    await pool(stale, 8, async ({ summary, stamp }) => {
       try {
         const contents = await this.sx.assets.readFiles(summary.name);
-        files = contents.length;
         const first = contents.find((f) => /\.(md|markdown)$/i.test(f.path));
-        if (first) frontmatter = parseFrontmatter(first.content);
+        const data = {
+          fm: first ? parseFrontmatter(first.content) : {},
+          files: contents.length,
+        };
+        derived.set(summary.name, data);
+        scanCache[summary.name] = { stamp, data };
+        cacheDirty = true;
       } catch {
-        // asset unreadable — keep implicit fields
+        // asset unreadable — keep implicit fields; no cache entry, so
+        // the next run retries instead of trusting a failure
+        derived.set(summary.name, { fm: {}, files: 0 });
       }
+    });
+    // Assets that vanished take their cache entries with them.
+    if (Object.keys(prior).some((name) => !(name in scanCache))) {
+      cacheDirty = true;
+    }
+    if (cacheDirty) {
+      // Best effort, preserving whatever else lives in this storage doc
+      // (the pinned query) — a failed save must never break the widget.
+      saved.scanCache = scanCache;
+      void this.sx.storage.saveData({ ...saved }).catch(() => {});
+    }
+    const rows = [];
+    for (const summary of assets) {
+      const d = derived.get(summary.name) || { fm: {}, files: 0 };
       const u = usage.get(summary.name);
       rows.push({
-        ...frontmatter,
+        ...d.fm,
         name: summary.name,
         type: summary.type,
         description: summary.description,
         updatedat: summary.updatedAt || "",
-        files,
+        files: d.files,
         uses30d: u ? u.count : 0,
         lastused: u ? u.last.slice(0, 10) : "",
         users: u ? u.actors.size : 0,
@@ -168,7 +216,7 @@ export default class AssetQuery {
       out.replaceChildren(el("div", FAINT + "font-size: 12px; padding: 6px 0;", "Running…"));
       try {
         const q = parseQuery(editor.value);
-        const rows = await this.loadRows();
+        const rows = await this.loadRows(saved);
         if (seq !== runSeq) return;
         let result = rows.filter((r) => q.where.every((c) => matches(r, c)));
         if (q.sort) {
@@ -176,7 +224,9 @@ export default class AssetQuery {
           result.sort((a, b) => dir * compare(a[q.sort.field] ?? "", b[q.sort.field] ?? ""));
         }
         result = result.slice(0, q.limit);
-        await this.sx.storage.saveData({ query: editor.value });
+        // Preserve the scan cache (and anything else) alongside the query.
+        saved.query = editor.value;
+        await this.sx.storage.saveData({ ...saved });
         if (seq !== runSeq) return;
         this.renderTable(out, q, result);
       } catch (e) {

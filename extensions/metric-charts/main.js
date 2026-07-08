@@ -46,9 +46,16 @@ function bucketKey(iso, groupBy) {
   return monday.toISOString().slice(0, 10);
 }
 
+// Identical windows are memoized for this long — several pinned charts
+// (or a re-run of the same spec) share one fetch instead of pulling the
+// same events over the bridge again.
+const FETCH_TTL_MS = 60_000;
+
 export default class MetricCharts {
   onload(sx) {
     this.sx = sx;
+    this.eventCache = new Map(); // "source:days" -> {at, promise}
+    this.teamCache = null; // {at, promise}
     sx.registerSidebarPanel({
       id: "metrics",
       title: "Metrics",
@@ -63,11 +70,24 @@ export default class MetricCharts {
 
   onunload() {}
 
+  /** Events for a source+window, memoized (in-flight promise shared) so
+   * pinned charts with identical windows don't each round-trip. Failures
+   * are evicted, never cached. */
+  fetchEvents(source, days) {
+    const key = source + ":" + days;
+    const hit = this.eventCache.get(key);
+    if (hit && Date.now() - hit.at < FETCH_TTL_MS) return hit.promise;
+    const promise =
+      source === "audit"
+        ? this.sx.usage.auditEvents(days)
+        : this.sx.usage.events(days);
+    this.eventCache.set(key, { at: Date.now(), promise });
+    promise.catch(() => this.eventCache.delete(key));
+    return promise;
+  }
+
   async run(spec, teamsByMember) {
-    const events =
-      spec.source === "audit"
-        ? await this.sx.usage.auditEvents(spec.days)
-        : await this.sx.usage.events(spec.days);
+    const events = await this.fetchEvents(spec.source, spec.days);
     const series = new Map(); // splitKey -> Map(bucket -> count)
     let total = 0;
     for (const e of events) {
@@ -164,16 +184,25 @@ export default class MetricCharts {
     root.append(legend);
   }
 
-  async teamMap() {
-    const map = new Map();
-    try {
-      for (const t of await this.sx.teams.list()) {
-        for (const m of t.members) if (!map.has(m)) map.set(m, t.name);
-      }
-    } catch {
-      // backend without teams — split: team degrades to "(no team)"
+  teamMap() {
+    // Same memo shape as fetchEvents: membership barely changes, and the
+    // panel refetched it on every Run while the widget fetched it again.
+    if (this.teamCache && Date.now() - this.teamCache.at < FETCH_TTL_MS) {
+      return this.teamCache.promise;
     }
-    return map;
+    const promise = (async () => {
+      const map = new Map();
+      try {
+        for (const t of await this.sx.teams.list()) {
+          for (const m of t.members) if (!map.has(m)) map.set(m, t.name);
+        }
+      } catch {
+        // backend without teams — split: team degrades to "(no team)"
+      }
+      return map;
+    })();
+    this.teamCache = { at: Date.now(), promise };
+    return promise;
   }
 
   async mountPanel(view) {

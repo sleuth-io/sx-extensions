@@ -343,3 +343,59 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/library-stats/3"
+
+[[assets]]
+  name = "asset-query"
+  version = "5"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/asset-query/5"
+
+[[assets]]
+  name = "style-linter"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/style-linter/4"
+
+[[assets]]
+  name = "smart-templates"
+  version = "5"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/smart-templates/5"
+
+[[assets]]
+  name = "claude-assist"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/claude-assist/4"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "5"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/5"
+
+[[assets]]
+  name = "metric-charts"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/metric-charts/3"
+
+[[assets]]
+  name = "library-board"
+  version = "5"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-board/5"
+
+[[assets]]
+  name = "review-rota"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/review-rota/3"

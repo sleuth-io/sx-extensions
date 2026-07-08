@@ -1,7 +1,7 @@
 {
   "id": "metric-charts",
   "name": "Metric Charts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "2.1.0",
   "description": "Ask your own usage questions: a small chart DSL over usage and change events — group by day, week, or month, split by team, user, or asset — with pinnable dashboard charts. Inspired by Obsidian's Tracker and Charts.",
   "author": "sx",

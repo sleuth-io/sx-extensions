@@ -57,6 +57,18 @@ function rankAssets(assets, question) {
     .slice(0, MAX_CONTEXT_ASSETS);
 }
 
+/** Run fn over items with at most n in flight — context reads are a
+ * full round-trip each on cloud vaults; don't chain them serially. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
+
 function assetMarkdown(files) {
   const md = files
     .filter((f) => f.path.toLowerCase().endsWith(".md"))
@@ -82,6 +94,7 @@ export default class ClaudeAssist {
     this.transcript = []; // {who: "you"|"claude"|"note", text} — what renders
     this.busy = false;
     this.rerender = null;
+    this.contextCache = new Map(); // name -> {stamp, md}, this session only
 
     sx.registerMainView({
       id: "assist",
@@ -406,18 +419,34 @@ export default class ClaudeAssist {
       .slice(0, 300)
       .map((a) => `- ${a.name} (${a.type}): ${a.description || "no description"}`)
       .join("\n");
-    // Rank on names/descriptions first; read only the winners' files.
+    // Rank on names/descriptions first; read only the winners' files —
+    // 8 at a time, keeping rank order, and reusing this session's
+    // markdown for any asset unchanged since a previous ask.
     const ranked = rankAssets(assets, question);
-    const blocks = [];
-    for (const { asset } of ranked) {
-      try {
-        const files = await this.sx.assets.readFiles(asset.name);
-        const md = assetMarkdown(files);
-        if (md) blocks.push(`<asset name="${asset.name}">\n${md}\n</asset>`);
-      } catch {
-        // unreadable asset: the catalog line still represents it
-      }
-    }
+    const slots = new Array(ranked.length);
+    await pool(
+      ranked.map(({ asset }, i) => ({ asset, i })),
+      8,
+      async ({ asset, i }) => {
+        const stamp = asset.updatedAt || asset.version || asset.name;
+        const hit = this.contextCache.get(asset.name);
+        let md;
+        if (hit && hit.stamp === stamp) {
+          md = hit.md;
+        } else {
+          try {
+            md = assetMarkdown(await this.sx.assets.readFiles(asset.name));
+            this.contextCache.set(asset.name, { stamp, md });
+          } catch {
+            // unreadable asset: the catalog line still represents it;
+            // nothing cached, so the next ask retries
+            return;
+          }
+        }
+        if (md) slots[i] = `<asset name="${asset.name}">\n${md}\n</asset>`;
+      },
+    );
+    const blocks = slots.filter(Boolean);
     return (
       "You answer questions about a team's AI-asset library (skills, rules, " +
       "commands, MCP configs). Ground every answer in the catalog and asset " +

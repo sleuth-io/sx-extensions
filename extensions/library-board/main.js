@@ -38,6 +38,11 @@ export default class LibraryBoard {
 
   async mount(view) {
     view.el.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading…"));
+    // Per-mount memo: switching Grid→Board→Grid reuses the assets,
+    // events, and drafts already fetched this mount instead of pulling
+    // them over the bridge again. Board STATE is deliberately not
+    // memoized — drops mutate it.
+    const memo = {};
     const tabs = el("div", "display: flex; gap: 6px; margin-bottom: 12px;");
     const body = el("div", "");
     const mk = (label, render) => {
@@ -51,22 +56,23 @@ export default class LibraryBoard {
       b.addEventListener("click", () => void render(body));
       return b;
     };
-    tabs.append(mk("Grid", (b) => this.renderGrid(b)), mk("Board", (b) => this.renderBoard(b)));
+    tabs.append(mk("Grid", (b) => this.renderGrid(b, memo)), mk("Board", (b) => this.renderBoard(b, memo)));
     view.el.replaceChildren(tabs, body);
-    await this.renderGrid(body);
+    await this.renderGrid(body, memo);
   }
 
   // ---- Grid: editable metadata across the library ----
 
-  async renderGrid(root) {
+  async renderGrid(root, memo = {}) {
     // Tab clicks can race — only the latest render may write into root.
     const seq = ++this.renderSeq;
     root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading assets…"));
     try {
-      const [assets, events] = await Promise.all([
+      memo.grid ??= Promise.all([
         this.sx.assets.list(),
         this.sx.usage.events(30).catch(() => []),
       ]);
+      const [assets, events] = await memo.grid;
       if (seq !== this.renderSeq) return;
       const uses = new Map();
       for (const e of events) uses.set(e.assetName, (uses.get(e.assetName) || 0) + 1);
@@ -139,6 +145,7 @@ export default class LibraryBoard {
         table,
       );
     } catch (e) {
+      memo.grid = null; // never cache a failure — the next click retries
       if (seq !== this.renderSeq) return;
       root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Couldn't load: " + e));
     }
@@ -146,11 +153,12 @@ export default class LibraryBoard {
 
   // ---- Board: the draft pipeline ----
 
-  async renderBoard(root) {
+  async renderBoard(root, memo = {}) {
     const seq = ++this.renderSeq;
     root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Loading drafts…"));
     try {
-      const [drafts, state] = await Promise.all([this.sx.drafts.list(), this.state()]);
+      memo.drafts ??= this.sx.drafts.list();
+      const [drafts, state] = await Promise.all([memo.drafts, this.state()]);
       if (seq !== this.renderSeq) return;
       // Selection stays off across the whole board (grid + lanes), not
       // just cards, so a drag that starts on the background never
@@ -182,7 +190,7 @@ export default class LibraryBoard {
           card.addEventListener("pointerdown", (e) => {
             if (e.button !== 0) return;
             e.preventDefault();
-            this.startCardDrag(e, card, d.id, root);
+            this.startCardDrag(e, card, d.id, root, memo);
           });
           card.append(
             el("div", "font-weight: 600;", d.name),
@@ -197,6 +205,7 @@ export default class LibraryBoard {
         lanes,
       );
     } catch (e) {
+      memo.drafts = null; // never cache a failure — the next click retries
       if (seq !== this.renderSeq) return;
       root.replaceChildren(el("div", FAINT + "font-size: 12px;", "Couldn't load drafts: " + e));
     }
@@ -206,7 +215,7 @@ export default class LibraryBoard {
    * under it, highlight the lane it's over, and drop on release. All
    * listeners live on the card via setPointerCapture, so there's
    * nothing to leak — release ends everything. */
-  startCardDrag(down, card, draftId, root) {
+  startCardDrag(down, card, draftId, root, memo) {
     card.setPointerCapture(down.pointerId);
     const rect = card.getBoundingClientRect();
     let moved = false;
@@ -243,7 +252,7 @@ export default class LibraryBoard {
       if (hoverLane) hoverLane.style.borderColor = "var(--color-line)";
       const lane = moved && e.type === "pointerup" ? laneUnder(e) : null;
       if (!lane) {
-        void this.renderBoard(root); // snap back
+        void this.renderBoard(root, memo); // snap back
         return;
       }
       try {
@@ -255,7 +264,7 @@ export default class LibraryBoard {
       } catch (err) {
         this.sx.ui.notice("Couldn't move the draft: " + err);
       }
-      void this.renderBoard(root);
+      void this.renderBoard(root, memo);
     };
     card.addEventListener("pointermove", onMove);
     card.addEventListener("pointerup", onUp);
