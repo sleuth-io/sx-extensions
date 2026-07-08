@@ -287,3 +287,38 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/asset-query/4"
+
+[[assets]]
+  name = "claude-assist"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/claude-assist/3"
+
+[[assets]]
+  name = "library-board"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-board/4"
+
+[[assets]]
+  name = "related-assets"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/related-assets/4"
+
+[[assets]]
+  name = "table-tidy"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/table-tidy/3"
+
+[[assets]]
+  name = "draft-refactor"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/draft-refactor/3"

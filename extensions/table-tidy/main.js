@@ -100,8 +100,9 @@ export default class TableTidy {
     this.sx = sx;
     sx.registerCommand({
       id: "format-tables",
-      title: "Format all tables in draft",
+      title: "Table Tidy: Format all tables in draft",
       context: "editor",
+      hint: "Aligns pipes and pads columns in the open draft",
       run: () => this.formatAll(),
     });
     sx.onBeforePublish((ctx) => this.check(ctx));
@@ -144,7 +145,7 @@ export default class TableTidy {
         if (counts.size > 1) {
           warnings.push({
             message: "Ragged table — rows have differing column counts",
-            detail: `${f.path}:${b.start + 1} — run "Format all tables in draft"`,
+            detail: `${f.path}:${b.start + 1} — run "Table Tidy: Format all tables in draft"`,
           });
         }
       }

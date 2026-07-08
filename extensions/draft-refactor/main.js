@@ -40,8 +40,9 @@ export default class DraftRefactor {
     this.sx = sx;
     sx.registerCommand({
       id: "extract-selection",
-      title: "Extract selection to new draft",
+      title: "Extract selection into a new draft…",
       context: "editor",
+      hint: "Select text in the editor first, then run this",
       run: () => void this.extract(),
     });
   }

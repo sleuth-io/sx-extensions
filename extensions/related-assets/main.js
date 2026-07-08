@@ -132,13 +132,15 @@ export default class RelatedAssets {
   }
 
   async mount(view, assetName) {
-    view.el.replaceChildren(el("div", FAINT + "padding: 8px 0;", "Comparing assets…"));
+    view.el.replaceChildren(
+      el("div", FAINT + "font-size: 12px; padding: 8px 0;", "Comparing assets…"),
+    );
     try {
       const { vectors } = await this.buildCorpus();
       const me = vectors.get(assetName);
       if (!me) {
         view.el.replaceChildren(
-          el("div", FAINT + "padding: 8px 0;", "Nothing to compare yet."),
+          el("div", FAINT + "font-size: 12px; padding: 8px 0;", "Nothing to compare yet."),
         );
         return;
       }
@@ -152,7 +154,11 @@ export default class RelatedAssets {
       this.render(view.el, me, scored.slice(0, 8));
     } catch (e) {
       view.el.replaceChildren(
-        el("div", FAINT + "padding: 8px 0;", "Couldn't compute related assets: " + e),
+        el(
+          "div",
+          FAINT + "font-size: 12px; padding: 8px 0;",
+          "Couldn't compute related assets: " + e,
+        ),
       );
     }
   }
@@ -172,7 +178,7 @@ export default class RelatedAssets {
     root.replaceChildren();
     if (rows.length === 0) {
       root.append(
-        el("div", FAINT + "padding: 8px 0;", "No clearly related assets found."),
+        el("div", FAINT + "font-size: 12px; padding: 8px 0;", "No clearly related assets found."),
       );
       return;
     }

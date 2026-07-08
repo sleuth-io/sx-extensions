@@ -152,9 +152,21 @@ export default class LibraryBoard {
     try {
       const [drafts, state] = await Promise.all([this.sx.drafts.list(), this.state()]);
       if (seq !== this.renderSeq) return;
-      const lanes = el("div", "display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;");
+      // Selection stays off across the whole board (grid + lanes), not
+      // just cards, so a drag that starts on the background never
+      // begins a text-selection marquee. The Grid tab keeps selection —
+      // its inputs need it.
+      const lanes = el(
+        "div",
+        "display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;" +
+          "user-select: none; -webkit-user-select: none;",
+      );
       for (const stage of STAGES) {
-        const lane = el("div", "border: 1px solid var(--color-line); border-radius: 10px; min-height: 160px; padding: 8px;");
+        const lane = el(
+          "div",
+          "border: 1px solid var(--color-line); border-radius: 10px; min-height: 160px;" +
+            "padding: 8px; user-select: none; -webkit-user-select: none;",
+        );
         lane.dataset.stage = stage;
         lane.append(el("div", FAINT + "font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 6px;", stage));
         for (const d of drafts.filter((x) => (state.stages[x.id] || "Incoming") === stage)) {

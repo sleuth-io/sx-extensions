@@ -135,22 +135,30 @@ export default class ClaudeAssist {
       if (composer && this.composerState === composer) this.composerState = null;
     });
     const root = view.el;
-    root.style.cssText =
-      "display: flex; flex-direction: column; height: 100%; max-width: 760px; gap: 10px;";
+    // The root fills its container; readability comes from a centered
+    // inner column (settings row + thread + composer share it) rather
+    // than pinning everything left with a void on the right.
+    root.style.cssText = "display: flex; flex-direction: column; height: 100%;";
     const key = await this.sx.secrets.get(KEY_NAME).catch(() => "");
     const cfg = await this.config();
     if (disposed) return;
 
     root.replaceChildren();
-    root.appendChild(this.settingsRow(key, cfg));
+    const inner = el(
+      "div",
+      "display: flex; flex-direction: column; height: 100%; min-height: 0;" +
+        "max-width: 900px; width: 100%; margin: 0 auto; gap: 10px;",
+    );
+    root.appendChild(inner);
+    inner.appendChild(this.settingsRow(key, cfg));
 
     const scroller = el("div", "flex: 1; overflow-y: auto; min-height: 0;");
     const thread = el("div", "display: flex; flex-direction: column; gap: 10px; padding: 2px;");
     scroller.appendChild(thread);
-    root.appendChild(scroller);
+    inner.appendChild(scroller);
 
     composer = this.composer(key);
-    root.appendChild(composer.row);
+    inner.appendChild(composer.row);
     this.composerState = composer;
 
     rerender = () => {
