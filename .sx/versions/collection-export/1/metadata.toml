@@ -1,9 +1,0 @@
-[asset]
-  name = "collection-export"
-  version = "1"
-  type = "app-plugin"
-  description = "Exports a collection as a Claude Code plugin, Codex plugin, Gemini extension, or plain zip, right from the collection view. Inspired by Longform's compile step."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["views:collection", "export", "assets:read"]

@@ -1,9 +1,0 @@
-{
-  "id": "asset-query",
-  "name": "Asset Query",
-  "version": "1.0.0",
-  "minAppVersion": "2.1.0",
-  "description": "Pin a live query table to the dashboard: filter, sort, and project your assets (including frontmatter and usage fields) with a tiny query language. Inspired by Obsidian's Dataview.",
-  "author": "sx",
-  "permissions": ["assets:read", "usage:read", "views:dashboard"]
-}

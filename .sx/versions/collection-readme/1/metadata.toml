@@ -1,9 +1,0 @@
-[asset]
-  name = "collection-readme"
-  version = "1"
-  type = "app-plugin"
-  description = "Generates a markdown index of a collection — grouped by type, one line per asset, install hint included — to copy or save as a README draft. Inspired by Obsidian's Waypoint and Folder Notes."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["views:collection", "assets:read", "drafts:write"]

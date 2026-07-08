@@ -1,0 +1,251 @@
+{
+  "extensions": [
+    {
+      "assetName": "activity-heatmap",
+      "id": "activity-heatmap",
+      "name": "Activity Heatmap",
+      "version": "1.0.4",
+      "description": "A GitHub-style year heatmap of library activity on the dashboard \u2014 usage or edits, with streaks and per-day drill-down. Inspired by Obsidian's Heatmap Calendar.",
+      "author": "sx",
+      "permissions": [
+        "usage:read",
+        "views:dashboard"
+      ]
+    },
+    {
+      "assetName": "asset-query",
+      "id": "asset-query",
+      "name": "Asset Query",
+      "version": "1.1.2",
+      "description": "Pin a live query table to the dashboard: filter, sort, and project your assets (including frontmatter and usage fields) with a tiny query language. Inspired by Obsidian's Dataview.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "views:dashboard"
+      ]
+    },
+    {
+      "assetName": "asset-relations",
+      "id": "asset-relations",
+      "name": "Asset Relations",
+      "version": "1.0.2",
+      "description": "Who depends on what: a Relations tab with references in and out, an orphans-and-hubs widget, and publish warnings for broken or high-impact references. Inspired by Obsidian's Strange New Worlds and Breadcrumbs.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "events",
+        "views:asset-tab",
+        "views:dashboard"
+      ]
+    },
+    {
+      "assetName": "claude-assist",
+      "id": "claude-assist",
+      "name": "Claude Assist",
+      "version": "1.0.3",
+      "description": "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft \u2014 powered by the Claude API with your own key, stored in your OS keychain.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "drafts:write",
+        "editor",
+        "commands",
+        "views:main",
+        "secrets",
+        "net:api.anthropic.com"
+      ]
+    },
+    {
+      "assetName": "collection-doctor",
+      "id": "collection-doctor",
+      "name": "Collection Doctor",
+      "version": "1.0.0",
+      "description": "Scores a collection's health 0-100 with clickable findings: thin descriptions, stale or unused assets, and oversized skills. Inspired by Obsidian's Zoottelkeeper and folder-health plugins.",
+      "author": "sx",
+      "permissions": [
+        "views:collection",
+        "assets:read",
+        "usage:read"
+      ]
+    },
+    {
+      "assetName": "collection-export",
+      "id": "collection-export",
+      "name": "Collection Export",
+      "version": "1.0.0",
+      "description": "Exports a collection as a Claude Code plugin, Codex plugin, Gemini extension, or plain zip, right from the collection view. Inspired by Longform's compile step.",
+      "author": "sx",
+      "permissions": [
+        "views:collection",
+        "export",
+        "assets:read"
+      ]
+    },
+    {
+      "assetName": "collection-readme",
+      "id": "collection-readme",
+      "name": "Collection Readme",
+      "version": "1.0.0",
+      "description": "Generates a markdown index of a collection \u2014 grouped by type, one line per asset, install hint included \u2014 to copy or save as a README draft. Inspired by Obsidian's Waypoint and Folder Notes.",
+      "author": "sx",
+      "permissions": [
+        "views:collection",
+        "assets:read",
+        "drafts:write"
+      ]
+    },
+    {
+      "assetName": "draft-refactor",
+      "id": "draft-refactor",
+      "name": "Draft Refactor",
+      "version": "1.0.2",
+      "description": "Extract the selected section of a draft into its own new draft, leaving a reference behind \u2014 the progressive-disclosure fix for bloated skills. Inspired by Obsidian's Note Refactor.",
+      "author": "sx",
+      "permissions": [
+        "editor",
+        "drafts:write",
+        "commands"
+      ]
+    },
+    {
+      "assetName": "library-board",
+      "id": "library-board",
+      "name": "Library Grid & Board",
+      "version": "1.0.4",
+      "description": "A full-page curation view: an editable metadata grid (owner, status, keywords across many assets at once) and a draft pipeline board with publish-stage warnings. Inspired by Obsidian's Projects, DB Folder, and Kanban.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "assets:write-metadata",
+        "drafts:write",
+        "usage:read",
+        "views:main",
+        "events"
+      ]
+    },
+    {
+      "assetName": "library-stats",
+      "id": "library-stats",
+      "name": "Library Stats",
+      "version": "1.0.2",
+      "description": "Big-number dashboard stats for the library: assets by type, total words, the largest assets, and a 12-week publish sparkline. Inspired by Obsidian's Vault Statistics and Better Word Count.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "views:dashboard"
+      ]
+    },
+    {
+      "assetName": "metric-charts",
+      "id": "metric-charts",
+      "name": "Metric Charts",
+      "version": "1.0.2",
+      "description": "Ask your own usage questions: a small chart DSL over usage and change events \u2014 group by day, week, or month, split by team, user, or asset \u2014 with pinnable dashboard charts. Inspired by Obsidian's Tracker and Charts.",
+      "author": "sx",
+      "permissions": [
+        "usage:read",
+        "views:sidebar",
+        "views:dashboard"
+      ]
+    },
+    {
+      "assetName": "recent-assets",
+      "id": "recent-assets",
+      "name": "Recent Assets",
+      "version": "1.0.2",
+      "description": "A sidebar working set: the assets your team touched most recently, with pinning. Inspired by Obsidian's Recent Files.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "views:sidebar"
+      ]
+    },
+    {
+      "assetName": "related-assets",
+      "id": "related-assets",
+      "name": "Related Assets",
+      "version": "1.0.4",
+      "description": "Shows the assets most similar to the one you're viewing, with the shared terms that drove each match. Inspired by Obsidian's Smart Connections.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "views:asset-tab"
+      ]
+    },
+    {
+      "assetName": "review-rota",
+      "id": "review-rota",
+      "name": "Review Rota",
+      "version": "1.0.2",
+      "description": "Keeps your library reviewed: every asset gets a review due date that adapts to how heavily it's used, reviews rotate fairly across the team, and verdicts (reviewed, needs update, deprecate) are shared with everyone. Publishing an asset resets its clock.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "assets:write-metadata",
+        "storage:shared",
+        "views:main",
+        "events"
+      ]
+    },
+    {
+      "assetName": "smart-templates",
+      "id": "smart-templates",
+      "name": "Smart Templates",
+      "version": "1.1.2",
+      "description": "Turn any asset into a fill-in template: {{date}}, {{prompt:...}} and {{choose:...}} placeholders become a form that scaffolds a new draft. Inspired by Obsidian's Templater and QuickAdd.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "drafts:write",
+        "views:sidebar"
+      ]
+    },
+    {
+      "assetName": "style-linter",
+      "id": "style-linter",
+      "name": "Style Linter",
+      "version": "1.1.2",
+      "description": "Formatting-consistency checks at publish time \u2014 heading hierarchy, whitespace, code-fence languages \u2014 with toggleable rules and a whole-library lint. Inspired by Obsidian's Linter.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "events",
+        "views:sidebar",
+        "views:asset-tab"
+      ]
+    },
+    {
+      "assetName": "table-tidy",
+      "id": "table-tidy",
+      "name": "Table Tidy",
+      "version": "1.0.2",
+      "description": "Formats markdown tables in the draft editor \u2014 padded columns, aligned pipes \u2014 and warns at publish time about ragged tables. Inspired by Obsidian's Advanced Tables.",
+      "author": "sx",
+      "permissions": [
+        "editor",
+        "commands",
+        "events"
+      ]
+    },
+    {
+      "assetName": "team-digest",
+      "id": "team-digest",
+      "name": "Team Digest",
+      "version": "1.0.2",
+      "description": "Generates a weekly library digest as a reviewable draft: what changed, usage risers and fallers, unadopted new assets, and stale-but-load-bearing skills. Inspired by Obsidian's Periodic Notes weekly-review workflow.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "drafts:write",
+        "views:dashboard",
+        "commands"
+      ]
+    }
+  ]
+}

@@ -1,9 +1,0 @@
-[asset]
-  name = "asset-query"
-  version = "1"
-  type = "app-plugin"
-  description = "Pin a live query table to the dashboard: filter, sort, and project your assets (including frontmatter and usage fields) with a tiny query language. Inspired by Obsidian's Dataview."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["assets:read", "usage:read", "views:dashboard"]

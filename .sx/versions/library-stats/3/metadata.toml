@@ -1,9 +1,0 @@
-[asset]
-  name = "library-stats"
-  version = "3"
-  type = "app-plugin"
-  description = "Big-number dashboard stats for the library: assets by type, total words, the largest assets, and a 12-week publish sparkline. Inspired by Obsidian's Vault Statistics and Better Word Count."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["assets:read", "usage:read", "views:dashboard"]

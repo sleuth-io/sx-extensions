@@ -1,9 +1,0 @@
-{
-  "id": "asset-relations",
-  "name": "Asset Relations",
-  "version": "1.0.0",
-  "minAppVersion": "2.1.0",
-  "description": "Who depends on what: a Relations tab with references in and out, an orphans-and-hubs widget, and publish warnings for broken or high-impact references. Inspired by Obsidian's Strange New Worlds and Breadcrumbs.",
-  "author": "sx",
-  "permissions": ["assets:read", "usage:read", "events", "views:asset-tab", "views:dashboard"]
-}

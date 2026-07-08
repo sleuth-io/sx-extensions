@@ -1,9 +1,0 @@
-[asset]
-  name = "recent-assets"
-  version = "2"
-  type = "app-plugin"
-  description = "A sidebar working set: the assets your team touched most recently, with pinning. Inspired by Obsidian's Recent Files."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["assets:read", "usage:read", "views:sidebar"]

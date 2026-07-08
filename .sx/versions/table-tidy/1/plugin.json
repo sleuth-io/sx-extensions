@@ -1,9 +1,0 @@
-{
-  "id": "table-tidy",
-  "name": "Table Tidy",
-  "version": "1.0.0",
-  "minAppVersion": "2.1.0",
-  "description": "Formats markdown tables in the draft editor — padded columns, aligned pipes — and warns at publish time about ragged tables. Inspired by Obsidian's Advanced Tables.",
-  "author": "sx",
-  "permissions": ["editor", "commands", "events"]
-}

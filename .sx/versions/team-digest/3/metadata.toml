@@ -1,9 +1,0 @@
-[asset]
-  name = "team-digest"
-  version = "3"
-  type = "app-plugin"
-  description = "Generates a weekly library digest as a reviewable draft: what changed, usage risers and fallers, unadopted new assets, and stale-but-load-bearing skills. Inspired by Obsidian's Periodic Notes weekly-review workflow."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["assets:read", "usage:read", "drafts:write", "views:dashboard", "commands"]
