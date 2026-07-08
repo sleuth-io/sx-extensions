@@ -43,7 +43,7 @@ access before it runs.
 From the command line, against your own vault:
 
 ```bash
-sx add extensions/<name> --yes
+sx add ./extensions/<name> --yes
 ```
 
 ## Authoring
