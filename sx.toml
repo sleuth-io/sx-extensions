@@ -336,3 +336,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   type = "app-plugin"
   [assets.source-path]
     path = ".sx/versions/asset-relations/3"
+
+[[assets]]
+  name = "library-stats"
+  version = "3"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/library-stats/3"

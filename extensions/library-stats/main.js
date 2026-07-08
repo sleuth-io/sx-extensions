@@ -2,8 +2,21 @@
 // Better Word Count. The originals put ambient numbers (notes, words,
 // size) in the status bar; here they're a dashboard widget with the two
 // questions a team library adds: which assets are bloated, and is the
-// library still growing? Word counts cache by updatedAt in per-plugin
-// storage — the same incremental-recompute trick Vault Statistics uses.
+// library still growing? Per-asset {files, words} persist in per-plugin
+// storage keyed by updatedAt — the same incremental-recompute trick
+// Vault Statistics uses, but surviving app restarts.
+
+/** Run fn over items with at most n in flight — a full-library scan
+ *  shouldn't be a serial chain of round-trips. */
+async function pool(items, n, fn) {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++]);
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, worker),
+  );
+}
 
 function el(tag, style, text) {
   const node = document.createElement(tag);
@@ -36,44 +49,70 @@ export default class LibraryStats {
       el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Counting…"),
     );
     try {
-      const [assets, audit, cacheRaw] = await Promise.all([
+      const [assets, audit, saved] = await Promise.all([
         this.sx.assets.list(),
         this.sx.usage.auditEvents(90).catch(() => []),
         this.sx.storage.loadData().catch(() => null),
       ]);
-      const cache = (cacheRaw && cacheRaw.words) || {};
-      const fresh = {};
-      let totalWords = 0;
-      let totalFiles = 0;
+      // Persistent per-asset cache of derived {files, words}, keyed by
+      // updatedAt — an unchanged asset is never re-read across restarts.
+      // (Absorbs the old session-only `words` key, which is dropped.)
+      const prior = (saved && saved.scanCache) || {};
+      const scanCache = {};
+      const derived = new Map(); // name -> {files, words}
       const byType = new Map();
-      const sizes = [];
+      let cacheDirty = Boolean(saved && saved.words); // legacy key: rewrite once
+      const stale = [];
       for (const summary of assets) {
         byType.set(summary.type, (byType.get(summary.type) || 0) + 1);
-        const key = summary.name + "@" + (summary.updatedAt || "");
-        let entry = cache[key];
-        if (entry) {
-          fresh[key] = entry;
+        const stamp = summary.updatedAt || summary.version || summary.name;
+        const hit = prior[summary.name];
+        if (hit && hit.stamp === stamp) {
+          scanCache[summary.name] = hit;
+          derived.set(summary.name, hit.data);
         } else {
-          try {
-            const files = await this.sx.assets.readFiles(summary.name);
-            entry = {
-              files: files.length,
-              words: files
-                .filter((f) => /\.(md|markdown)$/i.test(f.path))
-                .reduce((sum, f) => sum + words(f.content), 0),
-            };
-            fresh[key] = entry;
-          } catch {
-            // unreadable — show 0 this pass, but leave the cache entry
-            // absent so the next mount retries instead of trusting a failure
-            entry = { files: 0, words: 0 };
-          }
+          stale.push({ summary, stamp });
         }
+      }
+      await pool(stale, 8, async ({ summary, stamp }) => {
+        try {
+          const files = await this.sx.assets.readFiles(summary.name);
+          const data = {
+            files: files.length,
+            words: files
+              .filter((f) => /\.(md|markdown)$/i.test(f.path))
+              .reduce((sum, f) => sum + words(f.content), 0),
+          };
+          scanCache[summary.name] = { stamp, data };
+          derived.set(summary.name, data);
+          cacheDirty = true;
+        } catch {
+          // unreadable — show 0 this pass, but leave the cache entry
+          // absent so the next mount retries instead of trusting a failure
+          derived.set(summary.name, { files: 0, words: 0 });
+        }
+      });
+      // Assets that vanished take their cache entries with them.
+      if (Object.keys(prior).some((name) => !(name in scanCache))) {
+        cacheDirty = true;
+      }
+      if (cacheDirty) {
+        // Best effort, preserving whatever else lives in this storage doc —
+        // an oversized or failed save must never break the widget.
+        const { words: _legacy, ...keep } = saved || {};
+        void this.sx.storage
+          .saveData({ ...keep, scanCache })
+          .catch(() => {});
+      }
+      let totalWords = 0;
+      let totalFiles = 0;
+      const sizes = [];
+      for (const summary of assets) {
+        const entry = derived.get(summary.name) || { files: 0, words: 0 };
         totalWords += entry.words;
         totalFiles += entry.files;
         sizes.push({ name: summary.name, words: entry.words });
       }
-      void this.sx.storage.saveData({ words: fresh });
       sizes.sort((a, b) => b.words - a.words);
 
       // Publishes per week for the sparkline (12 buckets, oldest first).
