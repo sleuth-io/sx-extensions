@@ -46,6 +46,22 @@ From the command line, against your own vault:
 sx add ./extensions/<name> --yes
 ```
 
+## Distribution and install counts
+
+Version archives live as assets on the rolling [downloads release](https://github.com/sleuth-io/sx-extensions/releases/tag/downloads),
+not in the tree: CI (`.github/workflows/publish-releases.yml`) uploads each
+newly published `<name>-<version>.zip` and rewrites its `sx.toml` entry to a
+hash-pinned `[assets.source-http]` URL. Installing an extension downloads
+that asset, so GitHub's per-asset download counts are the (anonymous)
+install counter — a nightly job aggregates them into `stats.json`, which
+the sx app shows as install counts and a "Most installed" sort. `catalog.json`
+(also CI-generated) is what the app's marketplace browser reads, so browsing
+never downloads bundles or skews the counts.
+
+After merging a new extension or version, run `sx add ./extensions/<name>`
+against this vault as before — CI takes care of the release migration on
+the next push to main.
+
 ## Authoring
 
 Each extension is a folder with `plugin.json` (manifest), `main.js` (a single

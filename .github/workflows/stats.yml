@@ -1,0 +1,40 @@
+name: Aggregate install stats
+
+# Nightly: sum GitHub's per-asset download counts on the "downloads"
+# release into stats.json (see scripts/aggregate_stats.py). The sx app
+# reads stats.json from its marketplace clone to show install counts and
+# the "Most installed" sort.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: stats
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aggregate download counts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/aggregate_stats.py
+
+      - name: Commit stats.json
+        run: |
+          git config user.name "sx-extensions-bot"
+          git config user.email "bot@sleuth.io"
+          git add stats.json
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "Update install stats"
+          git pull --rebase origin main
+          git push

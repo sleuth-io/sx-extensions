@@ -1,0 +1,44 @@
+name: Publish release archives
+
+# On every push to main, move newly published version archives out of the
+# tree and onto the rolling "downloads" release, rewriting their sx.toml
+# entries to source-http (see scripts/publish_releases.py). Installs then
+# download the release asset — hash-verified via the manifest — and the
+# download count becomes the install counter behind stats.json.
+#
+# Pushes made here use GITHUB_TOKEN, which doesn't retrigger workflows,
+# so the commit-back can't loop.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: publish-releases
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Migrate version archives to release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish_releases.py
+
+      - name: Commit manifest and catalog updates
+        run: |
+          git config user.name "sx-extensions-bot"
+          git config user.email "bot@sleuth.io"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "Publish archives to release assets"
+          git pull --rebase origin main
+          git push
