@@ -26,6 +26,9 @@ rebuilt for a team AI-asset library.
 | **Library Grid & Board** | Projects + DB Folder + Kanban | Editable metadata grid and a draft pipeline board with publish-stage warnings |
 | **Claude Assist** | Smart Composer / Copilot-class assistants | Ask the library with cited answers, critique a draft as a prompt, draft a skill from a description — your own Claude API key, kept in the OS keychain |
 | **Review Rota** | Spaced Repetition + review workflows | Adaptive review due dates per asset, fair team rotation, shared verdicts (reviewed / needs update / deprecate); publishing resets the clock |
+| **Collection Doctor** | Zoottelkeeper / folder health | 0–100 collection health score with clickable findings: thin descriptions, stale, unused, oversized |
+| **Collection Export** | Longform compile | Export a collection as a Claude Code plugin, Codex plugin, Gemini extension, or plain zip |
+| **Collection Readme** | Waypoint + Folder Notes | Markdown index of a collection, grouped by type, ready to copy or save as a README draft |
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
