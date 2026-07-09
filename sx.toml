@@ -8,7 +8,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/related-assets-1.zip"
     size = 3603
-    hashes = {sha256 = "cac74dc54e77c0bd09192fca135fce70641829fc78c4744436d163c71caec0aa"}
+    [assets.source-http.hashes]
+      sha256 = "cac74dc54e77c0bd09192fca135fce70641829fc78c4744436d163c71caec0aa"
 
 [[assets]]
   name = "asset-query"
@@ -17,7 +18,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-query-1.zip"
     size = 4104
-    hashes = {sha256 = "d22a248cccabc4106da678793cf09b79b18f8b0b5d24697c3a822a512c3ef52a"}
+    [assets.source-http.hashes]
+      sha256 = "d22a248cccabc4106da678793cf09b79b18f8b0b5d24697c3a822a512c3ef52a"
 
 [[assets]]
   name = "recent-assets"
@@ -26,7 +28,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-1.zip"
     size = 2896
-    hashes = {sha256 = "230a076e6f176c847e017a0e1437610213b9b691012d3dc2900d770681d2e401"}
+    [assets.source-http.hashes]
+      sha256 = "230a076e6f176c847e017a0e1437610213b9b691012d3dc2900d770681d2e401"
 
 [[assets]]
   name = "activity-heatmap"
@@ -35,7 +38,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-1.zip"
     size = 3409
-    hashes = {sha256 = "319411c39f74d49ea32acf81f443a06ff3aa3b3de70500da2fcea583aefcbf5f"}
+    [assets.source-http.hashes]
+      sha256 = "319411c39f74d49ea32acf81f443a06ff3aa3b3de70500da2fcea583aefcbf5f"
 
 [[assets]]
   name = "library-stats"
@@ -44,7 +48,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-stats-1.zip"
     size = 3115
-    hashes = {sha256 = "bcd9e9a2b361b0c697b49b60101f6070ac791e1ccfe12655b62d69fb2a558774"}
+    [assets.source-http.hashes]
+      sha256 = "bcd9e9a2b361b0c697b49b60101f6070ac791e1ccfe12655b62d69fb2a558774"
 
 [[assets]]
   name = "smart-templates"
@@ -53,7 +58,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/smart-templates-1.zip"
     size = 3704
-    hashes = {sha256 = "e400f173d357ef3c61eb2a6f6819dfaea13a8931e8770896abfa325a54298686"}
+    [assets.source-http.hashes]
+      sha256 = "e400f173d357ef3c61eb2a6f6819dfaea13a8931e8770896abfa325a54298686"
 
 [[assets]]
   name = "style-linter"
@@ -62,7 +68,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/style-linter-1.zip"
     size = 3410
-    hashes = {sha256 = "f9619c17c78ff6ac6e00b0d6b343997dbf283145a2b484551f1b019ddd0d0d36"}
+    [assets.source-http.hashes]
+      sha256 = "f9619c17c78ff6ac6e00b0d6b343997dbf283145a2b484551f1b019ddd0d0d36"
 
 [[assets]]
   name = "related-assets"
@@ -71,7 +78,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/related-assets-2.zip"
     size = 3688
-    hashes = {sha256 = "4b95cd874575c9af627bade078a38088c0b94df64ab9e2adfbec9c74fa022cf4"}
+    [assets.source-http.hashes]
+      sha256 = "4b95cd874575c9af627bade078a38088c0b94df64ab9e2adfbec9c74fa022cf4"
 
 [[assets]]
   name = "smart-templates"
@@ -80,7 +88,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/smart-templates-2.zip"
     size = 3744
-    hashes = {sha256 = "3cd19348bbd031e4da60653b53e921874fe5c9ecbef5257e21c37e2f3b6f64d1"}
+    [assets.source-http.hashes]
+      sha256 = "3cd19348bbd031e4da60653b53e921874fe5c9ecbef5257e21c37e2f3b6f64d1"
 
 [[assets]]
   name = "style-linter"
@@ -89,7 +98,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/style-linter-2.zip"
     size = 4479
-    hashes = {sha256 = "b758e9abcc0b4f37fb1759b69676725c8ae9a744b92171027bc2650f2ea5483a"}
+    [assets.source-http.hashes]
+      sha256 = "b758e9abcc0b4f37fb1759b69676725c8ae9a744b92171027bc2650f2ea5483a"
 
 [[assets]]
   name = "smart-templates"
@@ -98,7 +108,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/smart-templates-3.zip"
     size = 3913
-    hashes = {sha256 = "c1fe2327aa1901e3dc8fb7fb36d277f2cca8aab2ef783460b77e0f0d74284c7a"}
+    [assets.source-http.hashes]
+      sha256 = "c1fe2327aa1901e3dc8fb7fb36d277f2cca8aab2ef783460b77e0f0d74284c7a"
 
 [[assets]]
   name = "recent-assets"
@@ -107,7 +118,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-2.zip"
     size = 2992
-    hashes = {sha256 = "b52acefcc85a53e54994eda2fca7249523b91e0ac8e749e9f1d3d1ddb5e5989c"}
+    [assets.source-http.hashes]
+      sha256 = "b52acefcc85a53e54994eda2fca7249523b91e0ac8e749e9f1d3d1ddb5e5989c"
 
 [[assets]]
   name = "asset-relations"
@@ -116,7 +128,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-relations-1.zip"
     size = 4404
-    hashes = {sha256 = "36f85bc498d4eeb99c4483203c5a76ad8686b5942281042c9704549c00e1ad06"}
+    [assets.source-http.hashes]
+      sha256 = "36f85bc498d4eeb99c4483203c5a76ad8686b5942281042c9704549c00e1ad06"
 
 [[assets]]
   name = "team-digest"
@@ -125,7 +138,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-digest-1.zip"
     size = 3615
-    hashes = {sha256 = "ef27dd9754642d0d2a1f053357b491aa0ded5a71dd039f5d025b4339f97c8abb"}
+    [assets.source-http.hashes]
+      sha256 = "ef27dd9754642d0d2a1f053357b491aa0ded5a71dd039f5d025b4339f97c8abb"
 
 [[assets]]
   name = "table-tidy"
@@ -134,7 +148,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/table-tidy-1.zip"
     size = 2535
-    hashes = {sha256 = "7517bffa66dcf09cbf0e5379c66a5b859da3e8777caa72d24e651f09dc8658e0"}
+    [assets.source-http.hashes]
+      sha256 = "7517bffa66dcf09cbf0e5379c66a5b859da3e8777caa72d24e651f09dc8658e0"
 
 [[assets]]
   name = "draft-refactor"
@@ -143,7 +158,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/draft-refactor-1.zip"
     size = 1988
-    hashes = {sha256 = "2e99f810fe3ebb215e144ad9d36fd0b523cc2fcfe3bc403a723685b3402b2e33"}
+    [assets.source-http.hashes]
+      sha256 = "2e99f810fe3ebb215e144ad9d36fd0b523cc2fcfe3bc403a723685b3402b2e33"
 
 [[assets]]
   name = "metric-charts"
@@ -152,7 +168,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/metric-charts-1.zip"
     size = 4427
-    hashes = {sha256 = "cf5f434c5bef3640419f799b5e7c8da724517c00d194d32109aa91ed27530ea5"}
+    [assets.source-http.hashes]
+      sha256 = "cf5f434c5bef3640419f799b5e7c8da724517c00d194d32109aa91ed27530ea5"
 
 [[assets]]
   name = "library-board"
@@ -161,7 +178,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-board-1.zip"
     size = 3566
-    hashes = {sha256 = "bd891c1ecdb07341706975503be5e78896bd54d1185c41caacaeca2efa8ad4e8"}
+    [assets.source-http.hashes]
+      sha256 = "bd891c1ecdb07341706975503be5e78896bd54d1185c41caacaeca2efa8ad4e8"
 
 [[assets]]
   name = "claude-assist"
@@ -170,7 +188,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-1.zip"
     size = 7462
-    hashes = {sha256 = "cc0424d8d82d3ee864b0fbd5334fffbcc000924a75a591e88fbccc0dc9a7561a"}
+    [assets.source-http.hashes]
+      sha256 = "cc0424d8d82d3ee864b0fbd5334fffbcc000924a75a591e88fbccc0dc9a7561a"
 
 [[assets]]
   name = "review-rota"
@@ -179,7 +198,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/review-rota-1.zip"
     size = 5496
-    hashes = {sha256 = "29560093467b99ae4f1077669ff98789ad045374c0cfc6d1688c661f80f51b97"}
+    [assets.source-http.hashes]
+      sha256 = "29560093467b99ae4f1077669ff98789ad045374c0cfc6d1688c661f80f51b97"
 
 [[assets]]
   name = "claude-assist"
@@ -188,7 +208,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-2.zip"
     size = 8049
-    hashes = {sha256 = "6a75fc8d53e980fd303a3e5cb40f9027300fa02af6277ce5c4e7d263d10a6dff"}
+    [assets.source-http.hashes]
+      sha256 = "6a75fc8d53e980fd303a3e5cb40f9027300fa02af6277ce5c4e7d263d10a6dff"
 
 [[assets]]
   name = "review-rota"
@@ -197,7 +218,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/review-rota-2.zip"
     size = 5884
-    hashes = {sha256 = "a20ae619c37cb2c26f325e0b7f0bbb17fab0a468592c4514e3d71d95d54a006a"}
+    [assets.source-http.hashes]
+      sha256 = "a20ae619c37cb2c26f325e0b7f0bbb17fab0a468592c4514e3d71d95d54a006a"
 
 [[assets]]
   name = "asset-relations"
@@ -206,7 +228,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-relations-2.zip"
     size = 4591
-    hashes = {sha256 = "6fe3b25eee82355ed4bbfdb7ddc004ec7a8066282a373bdce3f3d27677b6a124"}
+    [assets.source-http.hashes]
+      sha256 = "6fe3b25eee82355ed4bbfdb7ddc004ec7a8066282a373bdce3f3d27677b6a124"
 
 [[assets]]
   name = "team-digest"
@@ -215,7 +238,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-digest-2.zip"
     size = 3684
-    hashes = {sha256 = "17c300b7efc0e5759ba7793360fe179d33117fba3452ad81984d81ec9de43856"}
+    [assets.source-http.hashes]
+      sha256 = "17c300b7efc0e5759ba7793360fe179d33117fba3452ad81984d81ec9de43856"
 
 [[assets]]
   name = "table-tidy"
@@ -224,7 +248,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/table-tidy-2.zip"
     size = 2761
-    hashes = {sha256 = "76905769fe91ef18cc08dd8676492663d2d6def465a7b99d7ec5f0d89d436f7f"}
+    [assets.source-http.hashes]
+      sha256 = "76905769fe91ef18cc08dd8676492663d2d6def465a7b99d7ec5f0d89d436f7f"
 
 [[assets]]
   name = "draft-refactor"
@@ -233,7 +258,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/draft-refactor-2.zip"
     size = 2274
-    hashes = {sha256 = "5a330351d87bb92fa235f1678bfc1e3b13421b82000f88c0c97e12f163e164e3"}
+    [assets.source-http.hashes]
+      sha256 = "5a330351d87bb92fa235f1678bfc1e3b13421b82000f88c0c97e12f163e164e3"
 
 [[assets]]
   name = "metric-charts"
@@ -242,7 +268,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/metric-charts-2.zip"
     size = 4688
-    hashes = {sha256 = "7960b3eb0e503044348594dece6d4d3d151b6d5e280e85b384873dfa9b1cfb20"}
+    [assets.source-http.hashes]
+      sha256 = "7960b3eb0e503044348594dece6d4d3d151b6d5e280e85b384873dfa9b1cfb20"
 
 [[assets]]
   name = "library-board"
@@ -251,7 +278,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-board-2.zip"
     size = 3862
-    hashes = {sha256 = "09b78ed4c802b6971aba066ea199f3c792184bd7a73055eea26c0357b032e59f"}
+    [assets.source-http.hashes]
+      sha256 = "09b78ed4c802b6971aba066ea199f3c792184bd7a73055eea26c0357b032e59f"
 
 [[assets]]
   name = "asset-query"
@@ -260,7 +288,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-query-2.zip"
     size = 4215
-    hashes = {sha256 = "31e94b4d4eac8ca8162fc827628caf005fc6794dc48bb455f87f5c1092e32b8a"}
+    [assets.source-http.hashes]
+      sha256 = "31e94b4d4eac8ca8162fc827628caf005fc6794dc48bb455f87f5c1092e32b8a"
 
 [[assets]]
   name = "smart-templates"
@@ -269,7 +298,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/smart-templates-4.zip"
     size = 4200
-    hashes = {sha256 = "292b4362eeafc27b9b51be74119094d981de86be8d0b219632908c288d8d49f5"}
+    [assets.source-http.hashes]
+      sha256 = "292b4362eeafc27b9b51be74119094d981de86be8d0b219632908c288d8d49f5"
 
 [[assets]]
   name = "related-assets"
@@ -278,7 +308,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/related-assets-3.zip"
     size = 3810
-    hashes = {sha256 = "e75b638e9b2eb8c8379737cc25c99ad9a88271efe3ec3bbb0f8181ea856485ee"}
+    [assets.source-http.hashes]
+      sha256 = "e75b638e9b2eb8c8379737cc25c99ad9a88271efe3ec3bbb0f8181ea856485ee"
 
 [[assets]]
   name = "recent-assets"
@@ -287,7 +318,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-3.zip"
     size = 3278
-    hashes = {sha256 = "22e15cf1543ae1965fc78da3f6d56a4cc423a7a1f209994d3811f45164fc5ba4"}
+    [assets.source-http.hashes]
+      sha256 = "22e15cf1543ae1965fc78da3f6d56a4cc423a7a1f209994d3811f45164fc5ba4"
 
 [[assets]]
   name = "activity-heatmap"
@@ -296,7 +328,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-2.zip"
     size = 3769
-    hashes = {sha256 = "0219d2d75ebff3a65790f62c22d4666123c73e38b387983e394085fe3d18e786"}
+    [assets.source-http.hashes]
+      sha256 = "0219d2d75ebff3a65790f62c22d4666123c73e38b387983e394085fe3d18e786"
 
 [[assets]]
   name = "library-stats"
@@ -305,7 +338,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-stats-2.zip"
     size = 3250
-    hashes = {sha256 = "cdd1d719095c81efa82de5f282bd88e75daa90dbd52f1d2585845b92c823d24d"}
+    [assets.source-http.hashes]
+      sha256 = "cdd1d719095c81efa82de5f282bd88e75daa90dbd52f1d2585845b92c823d24d"
 
 [[assets]]
   name = "style-linter"
@@ -314,7 +348,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/style-linter-3.zip"
     size = 5151
-    hashes = {sha256 = "90fc3db249ecda1aadb480ada98aa2999cffcdb02e142e2d25fa0ba638005417"}
+    [assets.source-http.hashes]
+      sha256 = "90fc3db249ecda1aadb480ada98aa2999cffcdb02e142e2d25fa0ba638005417"
 
 [[assets]]
   name = "library-board"
@@ -323,7 +358,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-board-3.zip"
     size = 4637
-    hashes = {sha256 = "758f51021f3b2b36c51c624d296a5b2187e730e306ce52f286e2b070f4a3147c"}
+    [assets.source-http.hashes]
+      sha256 = "758f51021f3b2b36c51c624d296a5b2187e730e306ce52f286e2b070f4a3147c"
 
 [[assets]]
   name = "activity-heatmap"
@@ -332,7 +368,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-3.zip"
     size = 3778
-    hashes = {sha256 = "6e5eb65a80dd436cbae86fa3fb872e94294d082fa636f39e536dd08a565da829"}
+    [assets.source-http.hashes]
+      sha256 = "6e5eb65a80dd436cbae86fa3fb872e94294d082fa636f39e536dd08a565da829"
 
 [[assets]]
   name = "activity-heatmap"
@@ -341,7 +378,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-4.zip"
     size = 3813
-    hashes = {sha256 = "3c3ffa8b8e9e99466584c3e7122d56ea7ab028bcba25a725bb347c5560fcc981"}
+    [assets.source-http.hashes]
+      sha256 = "3c3ffa8b8e9e99466584c3e7122d56ea7ab028bcba25a725bb347c5560fcc981"
 
 [[assets]]
   name = "asset-query"
@@ -350,7 +388,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-query-3.zip"
     size = 4295
-    hashes = {sha256 = "d87fc2e5bd9dc5062e553f144b9c3c696742a8e092632de6d44b9c11f8d1ad8d"}
+    [assets.source-http.hashes]
+      sha256 = "d87fc2e5bd9dc5062e553f144b9c3c696742a8e092632de6d44b9c11f8d1ad8d"
 
 [[assets]]
   name = "team-digest"
@@ -359,7 +398,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-digest-3.zip"
     size = 4496
-    hashes = {sha256 = "ec81efa0b200011513d3a2a0cafe235bd4119684cfb65446689561c6957e8f90"}
+    [assets.source-http.hashes]
+      sha256 = "ec81efa0b200011513d3a2a0cafe235bd4119684cfb65446689561c6957e8f90"
 
 [[assets]]
   name = "asset-query"
@@ -368,7 +408,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-query-4.zip"
     size = 4295
-    hashes = {sha256 = "7dc34cae3f03aced225f5931b6eb55a66271ea57852784ed893d4c46683dd9ed"}
+    [assets.source-http.hashes]
+      sha256 = "7dc34cae3f03aced225f5931b6eb55a66271ea57852784ed893d4c46683dd9ed"
 
 [[assets]]
   name = "claude-assist"
@@ -377,7 +418,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-3.zip"
     size = 8167
-    hashes = {sha256 = "fc8faab5c9b44750f619083c907962e32da8aaeb36edbc0899ef8e4ad4759f55"}
+    [assets.source-http.hashes]
+      sha256 = "fc8faab5c9b44750f619083c907962e32da8aaeb36edbc0899ef8e4ad4759f55"
 
 [[assets]]
   name = "library-board"
@@ -386,7 +428,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-board-4.zip"
     size = 4760
-    hashes = {sha256 = "21a5e0bb095f57b8f4da2f8fd0702104575bf001395403ef72a4b43b5133ee8d"}
+    [assets.source-http.hashes]
+      sha256 = "21a5e0bb095f57b8f4da2f8fd0702104575bf001395403ef72a4b43b5133ee8d"
 
 [[assets]]
   name = "related-assets"
@@ -395,7 +438,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/related-assets-4.zip"
     size = 3828
-    hashes = {sha256 = "e8a550d9f6da06160cb8a91e4002010f63571f61857c92b3269469ef4f61df74"}
+    [assets.source-http.hashes]
+      sha256 = "e8a550d9f6da06160cb8a91e4002010f63571f61857c92b3269469ef4f61df74"
 
 [[assets]]
   name = "table-tidy"
@@ -404,7 +448,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/table-tidy-3.zip"
     size = 2790
-    hashes = {sha256 = "6f126830b97cfd10484a1bf1398546536e7664241505bae6dcac6ebdd9fa7ddc"}
+    [assets.source-http.hashes]
+      sha256 = "6f126830b97cfd10484a1bf1398546536e7664241505bae6dcac6ebdd9fa7ddc"
 
 [[assets]]
   name = "draft-refactor"
@@ -413,7 +458,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/draft-refactor-3.zip"
     size = 2301
-    hashes = {sha256 = "e5542d2bf4efa135c24c7dc50b474ed77cc3fe412238158d0a75631b20d0da4f"}
+    [assets.source-http.hashes]
+      sha256 = "e5542d2bf4efa135c24c7dc50b474ed77cc3fe412238158d0a75631b20d0da4f"
 
 [[assets]]
   name = "related-assets"
@@ -422,7 +468,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/related-assets-5.zip"
     size = 4690
-    hashes = {sha256 = "738b84f81c1aa97322a2a8a6bacb2322f23da393647e3ec13c1c00d30533208e"}
+    [assets.source-http.hashes]
+      sha256 = "738b84f81c1aa97322a2a8a6bacb2322f23da393647e3ec13c1c00d30533208e"
 
 [[assets]]
   name = "asset-relations"
@@ -431,7 +478,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-relations-3.zip"
     size = 5326
-    hashes = {sha256 = "4cd164315ff9e82c22ca8d4e1c0cf1527ea6921f47654bea176777c397710eb4"}
+    [assets.source-http.hashes]
+      sha256 = "4cd164315ff9e82c22ca8d4e1c0cf1527ea6921f47654bea176777c397710eb4"
 
 [[assets]]
   name = "library-stats"
@@ -440,7 +488,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-stats-3.zip"
     size = 3863
-    hashes = {sha256 = "ef2af427983c1e1ec49f7b33c18380b81a5e4453dd022f4ac4421d41ff8b2e4c"}
+    [assets.source-http.hashes]
+      sha256 = "ef2af427983c1e1ec49f7b33c18380b81a5e4453dd022f4ac4421d41ff8b2e4c"
 
 [[assets]]
   name = "asset-query"
@@ -449,7 +498,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/asset-query-5.zip"
     size = 5019
-    hashes = {sha256 = "4a6275f9d89b3f7ff5fabcd317a1face0051c9474f244ca4e56bb85b9a2361ff"}
+    [assets.source-http.hashes]
+      sha256 = "4a6275f9d89b3f7ff5fabcd317a1face0051c9474f244ca4e56bb85b9a2361ff"
 
 [[assets]]
   name = "style-linter"
@@ -458,7 +508,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/style-linter-4.zip"
     size = 6029
-    hashes = {sha256 = "3d43bfa7a72bdba3fbb1cc5d2306ef0f12d6fd42e4a1e5a068dc606cfa98d911"}
+    [assets.source-http.hashes]
+      sha256 = "3d43bfa7a72bdba3fbb1cc5d2306ef0f12d6fd42e4a1e5a068dc606cfa98d911"
 
 [[assets]]
   name = "smart-templates"
@@ -467,7 +518,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/smart-templates-5.zip"
     size = 5052
-    hashes = {sha256 = "f1e3027267f8eb89073571915a2b79bdeba28d898539f8f50aed373bddabdca4"}
+    [assets.source-http.hashes]
+      sha256 = "f1e3027267f8eb89073571915a2b79bdeba28d898539f8f50aed373bddabdca4"
 
 [[assets]]
   name = "claude-assist"
@@ -476,7 +528,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-4.zip"
     size = 8611
-    hashes = {sha256 = "56cc42c38ae7bd0eff9b57b981102041f0bd56c237a55875a03c87a9fafe0c2f"}
+    [assets.source-http.hashes]
+      sha256 = "56cc42c38ae7bd0eff9b57b981102041f0bd56c237a55875a03c87a9fafe0c2f"
 
 [[assets]]
   name = "activity-heatmap"
@@ -485,7 +538,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-5.zip"
     size = 3986
-    hashes = {sha256 = "f0123ad261464915f6f5354f997e28f94bb3cd1b3d01b31e60d4f7b8860c4f3a"}
+    [assets.source-http.hashes]
+      sha256 = "f0123ad261464915f6f5354f997e28f94bb3cd1b3d01b31e60d4f7b8860c4f3a"
 
 [[assets]]
   name = "metric-charts"
@@ -494,7 +548,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/metric-charts-3.zip"
     size = 5152
-    hashes = {sha256 = "1c9529353563cc39f6da7b8fb4b58ecd9bc4a6ae7a3648637fc925f18c1c855a"}
+    [assets.source-http.hashes]
+      sha256 = "1c9529353563cc39f6da7b8fb4b58ecd9bc4a6ae7a3648637fc925f18c1c855a"
 
 [[assets]]
   name = "library-board"
@@ -503,7 +558,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/library-board-5.zip"
     size = 4973
-    hashes = {sha256 = "4b2355f56a01c64601c9c569cbd591faea679a031d7fb1595c3007f71ee9ccd7"}
+    [assets.source-http.hashes]
+      sha256 = "4b2355f56a01c64601c9c569cbd591faea679a031d7fb1595c3007f71ee9ccd7"
 
 [[assets]]
   name = "review-rota"
@@ -512,7 +568,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/review-rota-3.zip"
     size = 6030
-    hashes = {sha256 = "252b3d499cceb3f837a48bd065a94ab6f089d61203b9786c48200405e73912a5"}
+    [assets.source-http.hashes]
+      sha256 = "252b3d499cceb3f837a48bd065a94ab6f089d61203b9786c48200405e73912a5"
 
 [[assets]]
   name = "collection-doctor"
@@ -521,7 +578,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/collection-doctor-1.zip"
     size = 5118
-    hashes = {sha256 = "d80cfac7fb6fa8afd51944cf622c9a551ce0c22efb71b2c172e1c5e5cdbf4fae"}
+    [assets.source-http.hashes]
+      sha256 = "d80cfac7fb6fa8afd51944cf622c9a551ce0c22efb71b2c172e1c5e5cdbf4fae"
 
 [[assets]]
   name = "collection-export"
@@ -530,7 +588,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/collection-export-1.zip"
     size = 2846
-    hashes = {sha256 = "4b108d73b72301faf1631a338b1d5007e21c6c9edb4c61318fca3f21008a23b5"}
+    [assets.source-http.hashes]
+      sha256 = "4b108d73b72301faf1631a338b1d5007e21c6c9edb4c61318fca3f21008a23b5"
 
 [[assets]]
   name = "collection-readme"
@@ -539,4 +598,33 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/collection-readme-1.zip"
     size = 3563
-    hashes = {sha256 = "084a9d1bcd20e032d2ef2a8690ba640e3dc9189836bdac089fccb143b4766aa1"}
+    [assets.source-http.hashes]
+      sha256 = "084a9d1bcd20e032d2ef2a8690ba640e3dc9189836bdac089fccb143b4766aa1"
+
+[[assets]]
+  name = "team-doctor"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-doctor/1"
+
+[[assets]]
+  name = "team-pulse"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-pulse/1"
+
+[[assets]]
+  name = "repo-doctor"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/repo-doctor/1"
+
+[[assets]]
+  name = "repo-sync-status"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/repo-sync-status/1"

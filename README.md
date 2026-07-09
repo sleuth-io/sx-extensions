@@ -29,6 +29,14 @@ rebuilt for a team AI-asset library.
 | **Collection Doctor** | Zoottelkeeper / folder health | 0–100 collection health score with clickable findings: thin descriptions, stale, unused, oversized |
 | **Collection Export** | Longform compile | Export a collection as a Claude Code plugin, Codex plugin, Gemini extension, or plain zip |
 | **Collection Readme** | Waypoint + Folder Notes | Markdown index of a collection, grouped by type, ready to copy or save as a README draft |
+| **Team Doctor** | Zoottelkeeper + Vault Changelog | 0–100 team health score — stale shares, assets the team never uses, thin descriptions, inactive members — plus a this-week digest |
+| **Team Pulse** | Contribution Graph + Tracker | A GitHub-style contribution grid per member, an adoption leaderboard, and the team's most-used assets |
+| **Repo Doctor** | Janitor + folder health | 0–100 health score for a repo's scoped assets, flagging broken scopes, never-used, stale, and thin ones |
+| **Repo Sync Status** | Obsidian Git | What's scoped to a repo, when each asset last changed, an install-command copy button, and a history feed |
+
+The **Team** and **Repo** extensions need the sx app's `views:team` /
+`views:repo` slots (SxAPI 1.7.0). The **Collection** trio needs
+`views:collection` (1.6.0).
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
