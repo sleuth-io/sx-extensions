@@ -1,9 +1,0 @@
-[asset]
-  name = "repo-doctor"
-  version = "2"
-  type = "app-plugin"
-  description = "Scores a repository's scoped assets 0-100 and flags what's rotting — broken scopes pointing at deleted assets, assets nothing in the repo uses, stale or thin ones. Inspired by Obsidian's Janitor and folder-health plugins."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["views:repo", "assets:read", "usage:read"]

@@ -645,33 +645,43 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   name = "team-doctor"
   version = "2"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/team-doctor/2"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-doctor-2.zip"
+    size = 6148
+    hashes = {sha256 = "07740238c9c07a01a35ccc7067f140f416a5e509035e504bb914a9072c0cd9b5"}
 
 [[assets]]
   name = "team-pulse"
   version = "2"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/team-pulse/2"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-pulse-2.zip"
+    size = 5361
+    hashes = {sha256 = "d0d1da99d2fae52af7b62dab0cfb6ec9bfafb19d6b038402288d99489fccaa02"}
 
 [[assets]]
   name = "repo-doctor"
   version = "2"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/repo-doctor/2"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-doctor-2.zip"
+    size = 5166
+    hashes = {sha256 = "0db51ec27ae5e58063d0f32a7e50eb2229b54ae5e8bcce35d4c5fca82e064d0b"}
 
 [[assets]]
   name = "repo-sync-status"
   version = "2"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/repo-sync-status/2"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-sync-status-2.zip"
+    size = 4761
+    hashes = {sha256 = "825630dbffaa5bb5e45ed5dcd73681550cd9391cdb16d7ba908a84e170b30898"}
 
 [[assets]]
   name = "activity-heatmap"
   version = "6"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/activity-heatmap/6"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-6.zip"
+    size = 5081
+    hashes = {sha256 = "415667a7e1110fc71b0dc928de8ec186a7f6834afce4653d0ff2c081c0dba394"}

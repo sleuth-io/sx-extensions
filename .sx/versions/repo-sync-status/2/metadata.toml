@@ -1,9 +1,0 @@
-[asset]
-  name = "repo-sync-status"
-  version = "2"
-  type = "app-plugin"
-  description = "Obsidian Git for your library: what's scoped to this repo, when each asset last changed, and a history feed of who scoped, installed, or updated what — with one-click copy of the sx install commands to run in the repo."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["views:repo", "assets:read", "usage:read"]
