@@ -608,7 +608,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-doctor-1.zip"
     size = 4680
-    hashes = {sha256 = "dc96953c2194c9e25348470f54ccbf394f5dcc8569f8866410b43c6e4ec96cad"}
+    [assets.source-http.hashes]
+      sha256 = "dc96953c2194c9e25348470f54ccbf394f5dcc8569f8866410b43c6e4ec96cad"
 
 [[assets]]
   name = "team-pulse"
@@ -617,7 +618,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-pulse-1.zip"
     size = 3865
-    hashes = {sha256 = "7616d410d526af0a7865e9954b820044909ab1863430d36fdf768bd800e24334"}
+    [assets.source-http.hashes]
+      sha256 = "7616d410d526af0a7865e9954b820044909ab1863430d36fdf768bd800e24334"
 
 [[assets]]
   name = "repo-doctor"
@@ -626,7 +628,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-doctor-1.zip"
     size = 3668
-    hashes = {sha256 = "cc7021e3ba7555b0373e707b5ac12543080dd5219b65666366b6f850c5895f8c"}
+    [assets.source-http.hashes]
+      sha256 = "cc7021e3ba7555b0373e707b5ac12543080dd5219b65666366b6f850c5895f8c"
 
 [[assets]]
   name = "repo-sync-status"
@@ -635,4 +638,40 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-sync-status-1.zip"
     size = 3290
-    hashes = {sha256 = "f42d98e11495570490a107eaf5593aeb5a908f4040dfc7c38f8b727379ec4b92"}
+    [assets.source-http.hashes]
+      sha256 = "f42d98e11495570490a107eaf5593aeb5a908f4040dfc7c38f8b727379ec4b92"
+
+[[assets]]
+  name = "team-doctor"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-doctor/2"
+
+[[assets]]
+  name = "team-pulse"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/team-pulse/2"
+
+[[assets]]
+  name = "repo-doctor"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/repo-doctor/2"
+
+[[assets]]
+  name = "repo-sync-status"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/repo-sync-status/2"
+
+[[assets]]
+  name = "activity-heatmap"
+  version = "6"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/activity-heatmap/6"

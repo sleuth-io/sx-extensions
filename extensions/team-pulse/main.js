@@ -18,6 +18,64 @@ function el(tag, style, text) {
 const FAINT = "color: var(--color-ink-faint);";
 const SHADE_ALPHA = ["0.18", "0.4", "0.65", "1"];
 
+// Bulk vault reads (teams, a half-year of usage events) are vault-wide,
+// not team-specific — the same pull serves every team, filtered per
+// member client-side. Cache them on the instance for a short window so
+// re-opening the tab, or flipping between two teams' Pulse, doesn't
+// re-hit the vault. Usage drifts slowly enough that sub-TTL staleness is
+// invisible; past the TTL the next open refreshes. Failures aren't
+// cached, so a blip doesn't stick.
+const CACHE_TTL = 60_000;
+
+const MAX_PERSIST = 6000; // event rows — keeps the storage doc under the cap
+
+function mergeDedup(existing, incoming, keyOf) {
+  const seen = new Set(existing.map(keyOf));
+  const out = existing.slice();
+  for (const e of incoming) {
+    const k = keyOf(e);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(e);
+    }
+  }
+  return out;
+}
+const USAGE_KEY = (e) => `${e.timestamp}|${e.actor}|${e.assetName}|${e.assetVersion}`;
+const AUDIT_KEY = (e) => `${e.timestamp}|${e.event}|${e.target}|${e.actor}`;
+
+// Persistent, incremental window load: fetch the window once and save it,
+// then on later loads pull only events newer than the newest cached one
+// and merge — a reload, even across restarts, transfers almost nothing.
+// The server's `since` filter is `>=`, so the boundary event repeats;
+// mergeDedup drops it. Falls back to a plain windowed fetch when the app
+// predates usage.eventsSince (fetchSince == null).
+async function incremental(sx, storeKey, days, fetchWindow, fetchSince, keyOf) {
+  const cutoffMs = Date.now() - days * 86400000;
+  const saved = await sx.storage.loadData().catch(() => null);
+  const prior = saved && saved[storeKey];
+  let events;
+  if (prior && prior.newest && fetchSince) {
+    const delta = await fetchSince(prior.newest).catch(() => null);
+    events = delta
+      ? mergeDedup(prior.events || [], delta, keyOf)
+      : await fetchWindow(days);
+  } else {
+    events = await fetchWindow(days);
+  }
+  events = events.filter((e) => new Date(e.timestamp).getTime() >= cutoffMs);
+  const newest = events.reduce((m, e) => (e.timestamp > m ? e.timestamp : m), "");
+  // Persist only when incremental is available AND it fits the cap;
+  // otherwise drop the entry so a later load can't merge onto a stale or
+  // truncated base.
+  const doc = { ...(saved || {}) };
+  if (fetchSince && events.length <= MAX_PERSIST) doc[storeKey] = { events, newest };
+  else delete doc[storeKey];
+  void sx.storage.saveData(doc).catch(() => {});
+  return events;
+}
+
+
 function dayKey(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -43,6 +101,7 @@ function shadeFor(count, th) {
 export default class TeamPulse {
   onload(sx) {
     this.sx = sx;
+    this.cache = new Map();
     sx.registerTeamView({
       id: "pulse",
       title: "Team Pulse",
@@ -51,6 +110,43 @@ export default class TeamPulse {
   }
 
   onunload() {}
+
+  /** Memoize a bulk read on the instance for CACHE_TTL. Concurrent
+   *  callers share one in-flight promise; a rejection is evicted so the
+   *  next call retries instead of serving a cached failure. */
+  cached(key, fn) {
+    const hit = this.cache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL) return hit.promise;
+    const promise = Promise.resolve()
+      .then(fn)
+      .catch((e) => {
+        if (this.cache.get(key)?.promise === promise) this.cache.delete(key);
+        throw e;
+      });
+    this.cache.set(key, { at: Date.now(), promise });
+    return promise;
+  }
+
+  /** Rolling window of usage events, persistently + incrementally cached
+   *  (see incremental()). */
+  loadUsage(days) {
+    const since = this.sx.usage.eventsSince
+      ? (iso) => this.sx.usage.eventsSince(iso)
+      : null;
+    return this.cached(`usage:${days}`, () =>
+      incremental(this.sx, `usage:${days}`, days, (d) => this.sx.usage.events(d), since, USAGE_KEY),
+    );
+  }
+
+  /** Rolling window of audit events, persistently + incrementally cached. */
+  loadAudit(days) {
+    const since = this.sx.usage.auditEventsSince
+      ? (iso) => this.sx.usage.auditEventsSince(iso)
+      : null;
+    return this.cached(`audit:${days}`, () =>
+      incremental(this.sx, `audit:${days}`, days, (d) => this.sx.usage.auditEvents(d), since, AUDIT_KEY),
+    );
+  }
 
   async mount(view, teamName) {
     const root = view.el;
@@ -65,8 +161,10 @@ export default class TeamPulse {
     try {
       const days = WEEKS * 7;
       const [teams, events] = await Promise.all([
-        this.sx.teams.list(),
-        this.sx.usage.events(days),
+        this.cached("teams", () => this.sx.teams.list()),
+        // Incremental + persistent (loadUsage); degrade to an empty grid
+        // if usage is unavailable rather than failing the whole view.
+        this.loadUsage(days).catch(() => []),
       ]);
       if (disposed) return;
       const team = teams.find((t) => t.name === teamName);

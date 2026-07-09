@@ -31,10 +31,57 @@ function thresholds(counts) {
 
 const SHADE_ALPHA = ["0.18", "0.4", "0.65", "1"];
 
+const CACHE_TTL = 60_000;
+const MAX_PERSIST = 6000; // event rows — keeps the storage doc under the cap
+
+function mergeDedup(existing, incoming, keyOf) {
+  const seen = new Set(existing.map(keyOf));
+  const out = existing.slice();
+  for (const e of incoming) {
+    const k = keyOf(e);
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(e);
+    }
+  }
+  return out;
+}
+const USAGE_KEY = (e) => `${e.timestamp}|${e.actor}|${e.assetName}|${e.assetVersion}`;
+const AUDIT_KEY = (e) => `${e.timestamp}|${e.event}|${e.target}|${e.actor}`;
+
+// Persistent, incremental window load: fetch the year once and save it,
+// then on later loads pull only events newer than the newest cached one
+// and merge — a reload, even across restarts, transfers almost nothing.
+// The server's `since` filter is `>=`, so the boundary event repeats;
+// mergeDedup drops it. Falls back to a plain windowed fetch when the app
+// predates usage.eventsSince (fetchSince == null).
+async function incremental(sx, storeKey, days, fetchWindow, fetchSince, keyOf) {
+  const cutoffMs = Date.now() - days * 86400000;
+  const saved = await sx.storage.loadData().catch(() => null);
+  const prior = saved && saved[storeKey];
+  let events;
+  if (prior && prior.newest && fetchSince) {
+    const delta = await fetchSince(prior.newest).catch(() => null);
+    events = delta
+      ? mergeDedup(prior.events || [], delta, keyOf)
+      : await fetchWindow(days);
+  } else {
+    events = await fetchWindow(days);
+  }
+  events = events.filter((e) => new Date(e.timestamp).getTime() >= cutoffMs);
+  const newest = events.reduce((m, e) => (e.timestamp > m ? e.timestamp : m), "");
+  const doc = { ...(saved || {}) };
+  if (fetchSince && events.length <= MAX_PERSIST) doc[storeKey] = { events, newest };
+  else delete doc[storeKey];
+  void sx.storage.saveData(doc).catch(() => {});
+  return events;
+}
+
 export default class ActivityHeatmap {
   onload(sx) {
     this.sx = sx;
     this.loadGen = 0; // a stale load must never paint over a newer one
+    this.cache = new Map();
     sx.registerDashboardWidget({
       id: "activity-heatmap",
       title: "Activity heatmap · last year",
@@ -43,6 +90,39 @@ export default class ActivityHeatmap {
   }
 
   onunload() {}
+
+  /** Memoize a bulk read on the instance for CACHE_TTL; a rejection is
+   *  evicted so the next call retries. */
+  cached(key, fn) {
+    const hit = this.cache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL) return hit.promise;
+    const promise = Promise.resolve()
+      .then(fn)
+      .catch((e) => {
+        if (this.cache.get(key)?.promise === promise) this.cache.delete(key);
+        throw e;
+      });
+    this.cache.set(key, { at: Date.now(), promise });
+    return promise;
+  }
+
+  loadUsage(days) {
+    const since = this.sx.usage.eventsSince
+      ? (iso) => this.sx.usage.eventsSince(iso)
+      : null;
+    return this.cached(`usage:${days}`, () =>
+      incremental(this.sx, `usage:${days}`, days, (d) => this.sx.usage.events(d), since, USAGE_KEY),
+    );
+  }
+
+  loadAudit(days) {
+    const since = this.sx.usage.auditEventsSince
+      ? (iso) => this.sx.usage.auditEventsSince(iso)
+      : null;
+    return this.cached(`audit:${days}`, () =>
+      incremental(this.sx, `audit:${days}`, days, (d) => this.sx.usage.auditEvents(d), since, AUDIT_KEY),
+    );
+  }
 
   async mount(view) {
     const saved = (await this.sx.storage.loadData().catch(() => null)) || {};
@@ -73,8 +153,8 @@ export default class ActivityHeatmap {
       // the Sunday-aligned first column isn't falsely empty.
       const events =
         metric === "edits"
-          ? await this.sx.usage.auditEvents(WEEKS * 7 + 6)
-          : await this.sx.usage.events(WEEKS * 7 + 6);
+          ? await this.loadAudit(WEEKS * 7 + 6)
+          : await this.loadUsage(WEEKS * 7 + 6);
       if (gen !== this.loadGen) return;
       // date -> {count, byAsset: Map, byTarget: Map}
       const days = new Map();
@@ -143,7 +223,12 @@ export default class ActivityHeatmap {
     );
     toggle.addEventListener("click", () => {
       this.metric = metric === "edits" ? "usage" : "edits";
-      void this.sx.storage.saveData({ metric: this.metric });
+      // Merge, don't overwrite — the storage doc also holds the
+      // incremental event cache written by incremental().
+      void this.sx.storage
+        .loadData()
+        .then((cur) => this.sx.storage.saveData({ ...(cur || {}), metric: this.metric }))
+        .catch(() => {});
       root.replaceChildren(
         el("div", FAINT + "font-size: 12px; padding: 10px 12px;", "Loading…"),
       );

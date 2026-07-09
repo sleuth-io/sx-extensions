@@ -1,7 +1,7 @@
 {
   "id": "repo-sync-status",
   "name": "Repo Sync Status",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "2.1.3",
   "description": "Obsidian Git for your library: what's scoped to this repo, when each asset last changed, and a history feed of who scoped, installed, or updated what — with one-click copy of the sx install commands to run in the repo.",
   "author": "sx",
