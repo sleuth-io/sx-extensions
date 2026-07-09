@@ -1,9 +1,0 @@
-[asset]
-  name = "team-pulse"
-  version = "3"
-  type = "app-plugin"
-  description = "A GitHub-style contribution grid per team member, an adoption leaderboard, and the assets the team leans on most — the multi-person view no other surface can show. Inspired by Obsidian's Contribution Graph and Tracker."
-
-[app-plugin]
-  entry = "main.js"
-  permissions = ["views:team", "assets:read", "usage:read"]

@@ -4,7 +4,7 @@
       "assetName": "activity-heatmap",
       "id": "activity-heatmap",
       "name": "Activity Heatmap",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "description": "A GitHub-style year heatmap of library activity on the dashboard \u2014 usage or edits, with streaks and per-day drill-down. Inspired by Obsidian's Heatmap Calendar.",
       "author": "sx",
       "permissions": [
@@ -180,7 +180,7 @@
       "assetName": "repo-doctor",
       "id": "repo-doctor",
       "name": "Repo Doctor",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "description": "Scores a repository's scoped assets 0-100 and flags what's rotting \u2014 broken scopes pointing at deleted assets, assets nothing in the repo uses, stale or thin ones. Inspired by Obsidian's Janitor and folder-health plugins.",
       "author": "sx",
       "permissions": [
@@ -193,7 +193,7 @@
       "assetName": "repo-sync-status",
       "id": "repo-sync-status",
       "name": "Repo Sync Status",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "description": "Obsidian Git for your library: what's scoped to this repo, when each asset last changed, and a history feed of who scoped, installed, or updated what \u2014 with one-click copy of the sx install commands to run in the repo.",
       "author": "sx",
       "permissions": [
@@ -277,7 +277,7 @@
       "assetName": "team-doctor",
       "id": "team-doctor",
       "name": "Team Doctor",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "description": "Scores a team's library health 0-100 with clickable findings \u2014 stale shares, assets the team never uses, thin descriptions, inactive members \u2014 plus a this-week activity digest. Inspired by Obsidian's folder-health plugins and Vault Changelog.",
       "author": "sx",
       "permissions": [
@@ -290,7 +290,7 @@
       "assetName": "team-pulse",
       "id": "team-pulse",
       "name": "Team Pulse",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "description": "A GitHub-style contribution grid per team member, an adoption leaderboard, and the assets the team leans on most \u2014 the multi-person view no other surface can show. Inspired by Obsidian's Contribution Graph and Tracker.",
       "author": "sx",
       "permissions": [
