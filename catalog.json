@@ -177,6 +177,32 @@
       ]
     },
     {
+      "assetName": "repo-doctor",
+      "id": "repo-doctor",
+      "name": "Repo Doctor",
+      "version": "1.0.0",
+      "description": "Scores a repository's scoped assets 0-100 and flags what's rotting \u2014 broken scopes pointing at deleted assets, assets nothing in the repo uses, stale or thin ones. Inspired by Obsidian's Janitor and folder-health plugins.",
+      "author": "sx",
+      "permissions": [
+        "views:repo",
+        "assets:read",
+        "usage:read"
+      ]
+    },
+    {
+      "assetName": "repo-sync-status",
+      "id": "repo-sync-status",
+      "name": "Repo Sync Status",
+      "version": "1.0.0",
+      "description": "Obsidian Git for your library: what's scoped to this repo, when each asset last changed, and a history feed of who scoped, installed, or updated what \u2014 with one-click copy of the sx install commands to run in the repo.",
+      "author": "sx",
+      "permissions": [
+        "views:repo",
+        "assets:read",
+        "usage:read"
+      ]
+    },
+    {
       "assetName": "review-rota",
       "id": "review-rota",
       "name": "Review Rota",
@@ -245,6 +271,32 @@
         "drafts:write",
         "views:dashboard",
         "commands"
+      ]
+    },
+    {
+      "assetName": "team-doctor",
+      "id": "team-doctor",
+      "name": "Team Doctor",
+      "version": "1.0.0",
+      "description": "Scores a team's library health 0-100 with clickable findings \u2014 stale shares, assets the team never uses, thin descriptions, inactive members \u2014 plus a this-week activity digest. Inspired by Obsidian's folder-health plugins and Vault Changelog.",
+      "author": "sx",
+      "permissions": [
+        "views:team",
+        "assets:read",
+        "usage:read"
+      ]
+    },
+    {
+      "assetName": "team-pulse",
+      "id": "team-pulse",
+      "name": "Team Pulse",
+      "version": "1.0.0",
+      "description": "A GitHub-style contribution grid per team member, an adoption leaderboard, and the assets the team leans on most \u2014 the multi-person view no other surface can show. Inspired by Obsidian's Contribution Graph and Tracker.",
+      "author": "sx",
+      "permissions": [
+        "views:team",
+        "assets:read",
+        "usage:read"
       ]
     }
   ]
