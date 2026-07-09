@@ -22,7 +22,7 @@ const FAINT = "color: var(--color-ink-faint);";
 // cached, so a blip doesn't stick.
 const CACHE_TTL = 60_000;
 
-const MAX_PERSIST = 6000; // event rows — keeps the storage doc under the cap
+const MAX_PERSIST = 30000; // event rows — well under the 10 MB local cap, even with two windows cached
 
 function mergeDedup(existing, incoming, keyOf) {
   const seen = new Set(existing.map(keyOf));

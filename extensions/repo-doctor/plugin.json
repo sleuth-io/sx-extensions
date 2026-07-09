@@ -1,7 +1,7 @@
 {
   "id": "repo-doctor",
   "name": "Repo Doctor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "2.1.3",
   "description": "Scores a repository's scoped assets 0-100 and flags what's rotting — broken scopes pointing at deleted assets, assets nothing in the repo uses, stale or thin ones. Inspired by Obsidian's Janitor and folder-health plugins.",
   "author": "sx",

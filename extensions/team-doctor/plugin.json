@@ -1,7 +1,7 @@
 {
   "id": "team-doctor",
   "name": "Team Doctor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "2.1.3",
   "description": "Scores a team's library health 0-100 with clickable findings — stale shares, assets the team never uses, thin descriptions, inactive members — plus a this-week activity digest. Inspired by Obsidian's folder-health plugins and Vault Changelog.",
   "author": "sx",
