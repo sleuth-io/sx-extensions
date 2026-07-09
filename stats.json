@@ -1,0 +1,56 @@
+{
+  "activity-heatmap": {
+    "installs": 10
+  },
+  "asset-query": {
+    "installs": 10
+  },
+  "asset-relations": {
+    "installs": 6
+  },
+  "claude-assist": {
+    "installs": 8
+  },
+  "collection-doctor": {
+    "installs": 4
+  },
+  "collection-export": {
+    "installs": 2
+  },
+  "collection-readme": {
+    "installs": 3
+  },
+  "draft-refactor": {
+    "installs": 6
+  },
+  "library-board": {
+    "installs": 11
+  },
+  "library-stats": {
+    "installs": 6
+  },
+  "metric-charts": {
+    "installs": 7
+  },
+  "recent-assets": {
+    "installs": 6
+  },
+  "related-assets": {
+    "installs": 10
+  },
+  "review-rota": {
+    "installs": 6
+  },
+  "smart-templates": {
+    "installs": 11
+  },
+  "style-linter": {
+    "installs": 8
+  },
+  "table-tidy": {
+    "installs": 6
+  },
+  "team-digest": {
+    "installs": 6
+  }
+}
