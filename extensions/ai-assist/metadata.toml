@@ -1,0 +1,9 @@
+[asset]
+name = "ai-assist"
+version = "2.0.0"
+type = "app-plugin"
+description = "Ask questions about your library and get cited, data-backed answers (the assistant looks up usage, teams, changes, and asset contents on demand), critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the AI provider you configure in Settings."
+
+[app-plugin]
+entry = "main.js"
+permissions = ["assets:read", "usage:read", "drafts:write", "editor", "commands", "views:main", "llm:use"]
