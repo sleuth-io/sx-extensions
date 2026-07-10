@@ -729,3 +729,10 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-5.zip"
     size = 3416
     hashes = {sha256 = "0249397a463f1bb874e65512f770a013d2571b45331c2c5d75d2e0ed7f14bedd"}
+
+[[assets]]
+  name = "ai-assist"
+  version = "2"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/ai-assist/2"
