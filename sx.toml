@@ -182,16 +182,6 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
       sha256 = "bd891c1ecdb07341706975503be5e78896bd54d1185c41caacaeca2efa8ad4e8"
 
 [[assets]]
-  name = "claude-assist"
-  version = "1"
-  type = "app-plugin"
-  [assets.source-http]
-    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-1.zip"
-    size = 7462
-    [assets.source-http.hashes]
-      sha256 = "cc0424d8d82d3ee864b0fbd5334fffbcc000924a75a591e88fbccc0dc9a7561a"
-
-[[assets]]
   name = "review-rota"
   version = "1"
   type = "app-plugin"
@@ -200,16 +190,6 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
     size = 5496
     [assets.source-http.hashes]
       sha256 = "29560093467b99ae4f1077669ff98789ad045374c0cfc6d1688c661f80f51b97"
-
-[[assets]]
-  name = "claude-assist"
-  version = "2"
-  type = "app-plugin"
-  [assets.source-http]
-    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-2.zip"
-    size = 8049
-    [assets.source-http.hashes]
-      sha256 = "6a75fc8d53e980fd303a3e5cb40f9027300fa02af6277ce5c4e7d263d10a6dff"
 
 [[assets]]
   name = "review-rota"
@@ -412,16 +392,6 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
       sha256 = "7dc34cae3f03aced225f5931b6eb55a66271ea57852784ed893d4c46683dd9ed"
 
 [[assets]]
-  name = "claude-assist"
-  version = "3"
-  type = "app-plugin"
-  [assets.source-http]
-    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-3.zip"
-    size = 8167
-    [assets.source-http.hashes]
-      sha256 = "fc8faab5c9b44750f619083c907962e32da8aaeb36edbc0899ef8e4ad4759f55"
-
-[[assets]]
   name = "library-board"
   version = "4"
   type = "app-plugin"
@@ -520,16 +490,6 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
     size = 5052
     [assets.source-http.hashes]
       sha256 = "f1e3027267f8eb89073571915a2b79bdeba28d898539f8f50aed373bddabdca4"
-
-[[assets]]
-  name = "claude-assist"
-  version = "4"
-  type = "app-plugin"
-  [assets.source-http]
-    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/claude-assist-4.zip"
-    size = 8611
-    [assets.source-http.hashes]
-      sha256 = "56cc42c38ae7bd0eff9b57b981102041f0bd56c237a55875a03c87a9fafe0c2f"
 
 [[assets]]
   name = "activity-heatmap"
@@ -748,4 +708,12 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-4.zip"
     size = 3278
-    hashes = {sha256 = "7704f0d3b8322fc49b98f4b538bce8f5d0f76c796c9c101c542b47d59954456a"}
+    [assets.source-http.hashes]
+      sha256 = "7704f0d3b8322fc49b98f4b538bce8f5d0f76c796c9c101c542b47d59954456a"
+
+[[assets]]
+  name = "ai-assist"
+  version = "1"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/ai-assist/1"
