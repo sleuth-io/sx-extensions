@@ -219,20 +219,35 @@ export default class ClaudeAssist {
         "padding: 8px 10px; border: 1px solid var(--color-line); border-radius: 10px;" +
         "background: var(--color-surface); font-size: 12px;",
     );
+    // Deep link into Settings → AI provider (sx.ui.openSettings, API
+    // 1.9.0); guarded so the row still renders on an older host.
+    const settingsLink = (label) => {
+      const link = el(
+        "a",
+        "color: var(--color-accent); cursor: pointer; text-decoration: underline;",
+        label,
+      );
+      link.onclick = (e) => {
+        e.preventDefault();
+        this.sx.ui.openSettings?.("ai");
+      };
+      return link;
+    };
     if (provider) {
       row.append(
         el("span", FAINT, "Answers come from your configured AI provider:"),
         el("span", "font-weight: 600; color: var(--color-ink);", provider),
-        el("span", FAINT, "— change it in Settings → AI provider."),
+        settingsLink("Change provider"),
       );
     } else {
       row.append(
         el(
           "span",
           "color: var(--color-ink);",
-          "No AI provider configured yet — open Settings → AI provider and pick one " +
-            "(an installed CLI, a local Ollama model, or your own API key).",
+          "No AI provider configured yet — pick one (an installed CLI, a local " +
+            "Ollama model, or your own API key).",
         ),
+        settingsLink("Open AI settings"),
       );
     }
     return row;
