@@ -745,5 +745,7 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   name = "recent-assets"
   version = "4"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/recent-assets/4"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/recent-assets-4.zip"
+    size = 3278
+    hashes = {sha256 = "7704f0d3b8322fc49b98f4b538bce8f5d0f76c796c9c101c542b47d59954456a"}
