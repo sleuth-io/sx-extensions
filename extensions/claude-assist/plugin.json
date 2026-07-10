@@ -1,9 +1,9 @@
 {
   "id": "claude-assist",
   "name": "Claude Assist",
-  "version": "1.0.3",
-  "minAppVersion": "2.1.0",
-  "description": "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the Claude API with your own key, stored in your OS keychain.",
+  "version": "1.1.0",
+  "minAppVersion": "2.2.0",
+  "description": "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the AI provider you configure in Settings (a CLI you already use, a local Ollama model, or your own API key).",
   "author": "sx",
   "permissions": [
     "assets:read",
@@ -11,7 +11,6 @@
     "editor",
     "commands",
     "views:main",
-    "secrets",
-    "net:api.anthropic.com"
+    "llm:use"
   ]
 }

@@ -1,9 +1,9 @@
 [asset]
 name = "claude-assist"
-version = "1.0.3"
+version = "1.1.0"
 type = "app-plugin"
-description = "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the Claude API with your own key, stored in your OS keychain."
+description = "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the AI provider you configure in Settings (a CLI you already use, a local Ollama model, or your own API key)."
 
 [app-plugin]
 entry = "main.js"
-permissions = ["assets:read", "drafts:write", "editor", "commands", "views:main", "secrets", "net:api.anthropic.com"]
+permissions = ["assets:read", "drafts:write", "editor", "commands", "views:main", "llm:use"]

@@ -1,9 +1,10 @@
-// Claude Assist — three library-shaped Claude interactions, nothing
+// Claude Assist — three library-shaped AI interactions, nothing
 // generic: ask the library a question (answers cite assets, citations
 // open them), critique the open draft as a prompt, and turn a
-// description into a new skill draft. The API key is the user's own,
-// stored via sx.secrets (OS keychain); requests go directly to
-// api.anthropic.com through the host-granted sx.net.fetch. Never
+// description into a new skill draft. Completions go through sx.llm
+// (API 1.9.0): the user picks ONE provider in Settings → AI provider —
+// an installed CLI, a local Ollama model, or their own API key — and
+// this extension never sees a vendor, an endpoint, or a key. Never
 // publishes anything.
 
 function el(tag, style, text) {
@@ -25,9 +26,6 @@ const BUTTON =
 const PRIMARY =
   BUTTON + "background: var(--color-accent); border-color: var(--color-accent); color: white;";
 
-const API_URL = "https://api.anthropic.com/v1/messages";
-const KEY_NAME = "anthropic-api-key";
-const MODELS = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"];
 const MAX_CONTEXT_ASSETS = 12;
 const MAX_ASSET_CHARS = 8000;
 const MAX_HISTORY_MESSAGES = 16; // sent to the API; the transcript keeps everything
@@ -129,11 +127,7 @@ export default class ClaudeAssist {
 
   onunload() {}
 
-  async config() {
-    return (await this.sx.storage.loadData().catch(() => null)) || {};
-  }
-
-  // ---- The one view: settings row, transcript, composer ----
+  // ---- The one view: provider row, transcript, composer ----
 
   async mount(view) {
     // Register disposal FIRST — the awaits below can outlive the view
@@ -152,8 +146,7 @@ export default class ClaudeAssist {
     // inner column (settings row + thread + composer share it) rather
     // than pinning everything left with a void on the right.
     root.style.cssText = "display: flex; flex-direction: column; height: 100%;";
-    const key = await this.sx.secrets.get(KEY_NAME).catch(() => "");
-    const cfg = await this.config();
+    const provider = await this.sx.llm.provider().catch(() => "");
     if (disposed) return;
 
     root.replaceChildren();
@@ -163,14 +156,14 @@ export default class ClaudeAssist {
         "max-width: 900px; width: 100%; margin: 0 auto; gap: 10px;",
     );
     root.appendChild(inner);
-    inner.appendChild(this.settingsRow(key, cfg));
+    inner.appendChild(this.providerRow(provider));
 
     const scroller = el("div", "flex: 1; overflow-y: auto; min-height: 0;");
     const thread = el("div", "display: flex; flex-direction: column; gap: 10px; padding: 2px;");
     scroller.appendChild(thread);
     inner.appendChild(scroller);
 
-    composer = this.composer(key);
+    composer = this.composer(provider);
     inner.appendChild(composer.row);
     this.composerState = composer;
 
@@ -216,51 +209,42 @@ export default class ClaudeAssist {
     c.input.focus();
   }
 
-  settingsRow(key, cfg) {
+  /** One informational line: which provider answers, or how to set one
+   * up. Provider configuration lives in Settings → AI provider, shared
+   * by every extension — no per-extension key or model UI anymore. */
+  providerRow(provider) {
     const row = el(
       "div",
       "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;" +
         "padding: 8px 10px; border: 1px solid var(--color-line); border-radius: 10px;" +
-        "background: var(--color-surface);",
+        "background: var(--color-surface); font-size: 12px;",
     );
-    const keyInput = el("input", INPUT + "flex: 1; min-width: 220px; font-size: 12px;");
-    keyInput.type = "password";
-    keyInput.placeholder = key
-      ? "API key saved in your OS keychain — paste to replace"
-      : "Anthropic API key (sk-ant-…) — stored in your OS keychain";
-    const save = el("button", BUTTON, key ? "Replace key" : "Save key");
-    save.onclick = async () => {
-      const v = keyInput.value.trim();
-      if (!v) return;
-      await this.sx.secrets.set(KEY_NAME, v);
-      keyInput.value = "";
-      keyInput.placeholder = "API key saved in your OS keychain — paste to replace";
-      save.textContent = "Replace key";
-      this.sx.ui.notice("Claude Assist: API key saved to your keychain");
-    };
-    const model = el("select", INPUT + "font-size: 12px;");
-    for (const m of MODELS) {
-      const opt = el("option", "", m);
-      opt.value = m;
-      if (m === (cfg.model || MODELS[0])) opt.selected = true;
-      model.appendChild(opt);
+    if (provider) {
+      row.append(
+        el("span", FAINT, "Answers come from your configured AI provider:"),
+        el("span", "font-weight: 600; color: var(--color-ink);", provider),
+        el("span", FAINT, "— change it in Settings → AI provider."),
+      );
+    } else {
+      row.append(
+        el(
+          "span",
+          "color: var(--color-ink);",
+          "No AI provider configured yet — open Settings → AI provider and pick one " +
+            "(an installed CLI, a local Ollama model, or your own API key).",
+        ),
+      );
     }
-    model.onchange = async () => {
-      const c = await this.config();
-      c.model = model.value;
-      await this.sx.storage.saveData(c);
-    };
-    row.append(keyInput, save, model);
     return row;
   }
 
-  composer(initialKey) {
+  composer(provider) {
     const row = el("div", "display: flex; gap: 8px; align-items: flex-end;");
     const input = el("textarea", INPUT + "flex: 1; resize: none; min-height: 40px; max-height: 140px;");
     input.rows = 2;
-    input.placeholder = initialKey
+    input.placeholder = provider
       ? "Ask about your library…"
-      : "Save your API key above, then ask about your library…";
+      : "Configure an AI provider in Settings, then ask about your library…";
     const send = el("button", PRIMARY, "Ask");
     const state = { row, input, mode: "ask" };
     const submit = () => {
@@ -353,7 +337,7 @@ export default class ClaudeAssist {
   async askLibrary(question) {
     this.transcript.push({ who: "you", text: question });
     this.messages.push({ role: "user", content: question });
-    await this.streamTurn(await this.librarySystemPrompt(question), this.messages);
+    await this.completeTurn(await this.librarySystemPrompt(question), this.messages);
   }
 
   async critiqueOpenDraft() {
@@ -385,7 +369,7 @@ export default class ClaudeAssist {
       role: "user",
       content: "Critique this draft:\n\n```\n" + draft + "\n```",
     });
-    await this.streamTurn(system, this.messages);
+    await this.completeTurn(system, this.messages);
   }
 
   async newSkillFrom(description) {
@@ -397,7 +381,7 @@ export default class ClaudeAssist {
       "`description` (one sentence, starts with when to use it), then focused " +
       "markdown instructions. No preamble — output the file content only.";
     this.messages.push({ role: "user", content: description });
-    const text = await this.streamTurn(system, this.messages);
+    const text = await this.completeTurn(system, this.messages);
     if (!text) return;
     const name =
       (text.match(/^name:\s*([a-z0-9-]+)/m) || [])[1] ||
@@ -458,29 +442,21 @@ export default class ClaudeAssist {
     );
   }
 
-  // ---- The API call: direct, streamed, no SDK ----
+  // ---- The completion: one sx.llm call, provider-agnostic ----
 
-  /** Drop the just-pushed user turn so the API history keeps
-   * alternating roles after a failed request. */
+  /** Drop the just-pushed user turn so the history keeps alternating
+   * roles after a failed request. */
   popFailedTurn(messages) {
     if (messages.length > 0 && messages[messages.length - 1].role === "user") {
       messages.pop();
     }
   }
 
-  async streamTurn(system, messages) {
-    const key = await this.sx.secrets.get(KEY_NAME).catch(() => "");
-    if (!key) {
-      this.popFailedTurn(messages);
-      this.transcript.push({
-        who: "note",
-        text: "No API key yet — paste your Anthropic key in the field above.",
-      });
-      this.rerender?.();
-      return "";
-    }
-    const cfg = await this.config();
-    const model = cfg.model || MODELS[0];
+  /** One turn through sx.llm.complete. Not streamed — the bridge is
+   * one-shot (CLI providers can't stream), so the bubble shows a
+   * thinking indicator until the whole reply lands. CLI and local
+   * providers can take a while on big prompts; that's normal. */
+  async completeTurn(system, messages) {
     const entry = { who: "claude", text: "", streaming: true };
     this.transcript.push(entry);
     this.busy = true;
@@ -490,104 +466,29 @@ export default class ClaudeAssist {
     // The window must still start on a user turn.
     let history = messages.slice(-MAX_HISTORY_MESSAGES);
     if (history[0]?.role === "assistant") history = history.slice(1);
-    const body = {
-      model,
-      max_tokens: 8192,
-      system,
-      messages: history,
-      stream: true,
-    };
-    // Adaptive thinking exists on the Opus 4.7+ family only.
-    if (model.startsWith("claude-opus-4-8") || model.startsWith("claude-opus-4-7")) {
-      body.thinking = { type: "adaptive" };
-    }
 
     try {
-      const res = await this.sx.net.fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-          // Anthropic requires this opt-in for browser-context calls;
-          // the key is the user's own, entered by them, kept in their
-          // keychain — the header's warning is satisfied, not bypassed.
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify(body),
+      const result = await this.sx.llm.complete({
+        messages: [{ role: "system", content: system }, ...history],
+        maxTokens: 8192,
       });
-      if (!res.ok) {
-        const detail = await res.text().catch(() => "");
-        let msg = `Claude API error ${res.status}`;
-        try {
-          msg += ": " + (JSON.parse(detail).error?.message || detail.slice(0, 200));
-        } catch {
-          if (detail) msg += ": " + detail.slice(0, 200);
-        }
-        throw new Error(msg);
-      }
-      let stopReason = "";
-      await this.readSSE(res, (evt) => {
-        if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
-          entry.text += evt.delta.text;
-          this.rerender?.();
-        } else if (evt.type === "message_delta" && evt.delta?.stop_reason) {
-          stopReason = evt.delta.stop_reason;
-        } else if (evt.type === "error") {
-          throw new Error(evt.error?.message || "stream error");
-        }
-      });
+      entry.text = result.text;
       entry.streaming = false;
-      // History (and the returned text) get the RAW model output; the
-      // stop-reason annotations render as transcript notes only.
       messages.push({ role: "assistant", content: entry.text });
-      if (stopReason === "refusal") {
-        this.transcript.push({ who: "note", text: "(Claude declined to answer this request.)" });
-      } else if (stopReason === "max_tokens") {
-        this.transcript.push({ who: "note", text: "(Response hit the length limit.)" });
-      }
       this.rerender?.();
       return entry.text;
     } catch (e) {
       entry.streaming = false;
-      // The turn failed — pop its user message so roles keep alternating.
+      // The turn failed — pop its user message so roles keep alternating,
+      // and drop the empty bubble in favor of the error note.
       this.popFailedTurn(messages);
-      if (!entry.text) {
-        // Nothing streamed — drop the empty bubble, keep only the note.
-        const idx = this.transcript.indexOf(entry);
-        if (idx >= 0) this.transcript.splice(idx, 1);
-      }
+      const idx = this.transcript.indexOf(entry);
+      if (idx >= 0) this.transcript.splice(idx, 1);
       this.transcript.push({ who: "note", text: String(e?.message || e) });
       this.rerender?.();
       return "";
     } finally {
       this.busy = false;
-    }
-  }
-
-  async readSSE(res, onEvent) {
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() ?? "";
-      for (const frame of frames) {
-        for (const line of frame.split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          const data = line.slice(5).trim();
-          if (!data || data === "[DONE]") continue;
-          try {
-            onEvent(JSON.parse(data));
-          } catch (e) {
-            if (e instanceof SyntaxError) continue; // partial/keepalive
-            throw e;
-          }
-        }
-      }
     }
   }
 }
