@@ -1,7 +1,7 @@
 {
   "id": "recent-assets",
   "name": "Recent Assets",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minAppVersion": "2.1.0",
   "description": "A sidebar working set: the assets your team touched most recently, with pinning. Inspired by Obsidian's Recent Files.",
   "author": "sx",

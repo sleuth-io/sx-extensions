@@ -1,6 +1,6 @@
 [asset]
 name = "recent-assets"
-version = "1.0.2"
+version = "1.0.3"
 type = "app-plugin"
 description = "A sidebar working set: the assets your team touched most recently, with pinning. Inspired by Obsidian's Recent Files."
 

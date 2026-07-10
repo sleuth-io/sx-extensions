@@ -5,7 +5,7 @@
 // (per-plugin storage) stay glued to the top — the inverse of the
 // original's bookmark exclusion, and more useful in a team library.
 
-const MAX_ROWS = 20;
+const MAX_ROWS = 5;
 
 function el(tag, style, text) {
   const node = document.createElement(tag);
