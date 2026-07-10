@@ -412,8 +412,77 @@ export default class ClaudeAssist {
     this.sx.ui.notice(`Draft “${name}” created — review and publish when ready`);
   }
 
+  /** Compact activity digest: per-asset usage counts, active users,
+   * teams, and recent changes — what turns "I can't see usage" into a
+   * real answer for "what's my most used skill?" / "who's active?" /
+   * "what changed recently?". Cached briefly; each block degrades to
+   * absent on error so one failed read never kills the ask. */
+  async activityDigest() {
+    const now = Date.now();
+    if (this.digestCache && now - this.digestCache.at < 5 * 60 * 1000) {
+      return this.digestCache.text;
+    }
+    const sections = await Promise.all([
+      (async () => {
+        const events = await this.sx.usage.events(90);
+        if (!events.length) return "## Usage (last 90 days)\nNo usage events recorded.";
+        const counts = new Map();
+        const users = new Map();
+        for (const e of events) {
+          counts.set(e.assetName, (counts.get(e.assetName) || 0) + 1);
+          users.set(e.actor, (users.get(e.actor) || 0) + 1);
+        }
+        const top = (m, n) =>
+          [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+        return (
+          "## Usage (last 90 days)\n" +
+          `${events.length} events, ${users.size} active users.\n` +
+          "Events per asset (most used first):\n" +
+          top(counts, 30).map(([k, v]) => `- ${k}: ${v}`).join("\n") +
+          "\nEvents per user:\n" +
+          top(users, 15).map(([k, v]) => `- ${k}: ${v}`).join("\n")
+        );
+      })().catch(() => ""),
+      (async () => {
+        const teams = await this.sx.teams.list();
+        if (!teams.length) return "";
+        return (
+          "## Teams\n" +
+          teams
+            .slice(0, 25)
+            .map(
+              (t) =>
+                `- ${t.name}: members ${t.members.join(", ") || "(none)"}` +
+                (t.assets?.length ? `; shared assets: ${t.assets.join(", ")}` : ""),
+            )
+            .join("\n")
+        );
+      })().catch(() => ""),
+      (async () => {
+        const audit = await this.sx.usage.auditEvents(30);
+        if (!audit.length) return "";
+        return (
+          "## Recent changes (last 30 days)\n" +
+          audit
+            .slice(0, 20)
+            .map(
+              (e) =>
+                `- ${(e.timestamp || "").slice(0, 10)} ${e.actor} ${e.event} ${e.target}`,
+            )
+            .join("\n")
+        );
+      })().catch(() => ""),
+    ]);
+    const text = sections.filter(Boolean).join("\n\n");
+    this.digestCache = { at: now, text };
+    return text;
+  }
+
   async librarySystemPrompt(question) {
-    const assets = await this.sx.assets.list();
+    const [assets, digest] = await Promise.all([
+      this.sx.assets.list(),
+      this.activityDigest(),
+    ]);
     const catalog = assets
       .slice(0, 300)
       .map((a) => `- ${a.name} (${a.type}): ${a.description || "no description"}`)
@@ -448,11 +517,13 @@ export default class ClaudeAssist {
     const blocks = slots.filter(Boolean);
     return (
       "You answer questions about a team's AI-asset library (skills, rules, " +
-      "commands, MCP configs). Ground every answer in the catalog and asset " +
-      "contents below — if the library doesn't cover it, say so plainly. " +
+      "commands, MCP configs). Ground every answer in the catalog, activity " +
+      "data, and asset contents below — if none of it covers the question, " +
+      "say so plainly. Usage counts are sx-recorded install/use events. " +
       "Whenever you reference an asset, cite it as [[asset-name]] (double " +
       "brackets, exact name); citations are clickable. Be concise.\n\n" +
       "## Catalog\n" + catalog + "\n\n" +
+      (digest ? digest + "\n\n" : "") +
       "## Relevant asset contents\n" + (blocks.join("\n\n") || "(none matched)")
     );
   }
