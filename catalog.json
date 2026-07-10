@@ -13,6 +13,23 @@
       ]
     },
     {
+      "assetName": "ai-assist",
+      "id": "ai-assist",
+      "name": "AI Assist",
+      "version": "2.0.0",
+      "description": "Ask questions about your library and get cited, data-backed answers (the assistant looks up usage, teams, changes, and asset contents on demand), critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft \u2014 powered by the AI provider you configure in Settings.",
+      "author": "sx",
+      "permissions": [
+        "assets:read",
+        "usage:read",
+        "drafts:write",
+        "editor",
+        "commands",
+        "views:main",
+        "llm:use"
+      ]
+    },
+    {
       "assetName": "asset-query",
       "id": "asset-query",
       "name": "Asset Query",
@@ -38,23 +55,6 @@
         "events",
         "views:asset-tab",
         "views:dashboard"
-      ]
-    },
-    {
-      "assetName": "claude-assist",
-      "id": "claude-assist",
-      "name": "Claude Assist",
-      "version": "1.0.3",
-      "description": "Ask questions about your library and get cited answers, critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft \u2014 powered by the Claude API with your own key, stored in your OS keychain.",
-      "author": "sx",
-      "permissions": [
-        "assets:read",
-        "drafts:write",
-        "editor",
-        "commands",
-        "views:main",
-        "secrets",
-        "net:api.anthropic.com"
       ]
     },
     {
