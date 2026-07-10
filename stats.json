@@ -1,6 +1,9 @@
 {
   "activity-heatmap": {
-    "installs": 10
+    "installs": 14
+  },
+  "ai-assist": {
+    "installs": 1
   },
   "asset-query": {
     "installs": 10
@@ -33,10 +36,16 @@
     "installs": 7
   },
   "recent-assets": {
-    "installs": 6
+    "installs": 10
   },
   "related-assets": {
     "installs": 10
+  },
+  "repo-doctor": {
+    "installs": 6
+  },
+  "repo-sync-status": {
+    "installs": 6
   },
   "review-rota": {
     "installs": 6
@@ -51,6 +60,12 @@
     "installs": 6
   },
   "team-digest": {
+    "installs": 6
+  },
+  "team-doctor": {
+    "installs": 6
+  },
+  "team-pulse": {
     "installs": 6
   }
 }
