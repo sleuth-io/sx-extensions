@@ -698,7 +698,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-doctor-3.zip"
     size = 6162
-    hashes = {sha256 = "43b999068e81a8b8aee6cfd8f3cd2658d72a743e1b43538f6622a2d6276b7d79"}
+    [assets.source-http.hashes]
+      sha256 = "43b999068e81a8b8aee6cfd8f3cd2658d72a743e1b43538f6622a2d6276b7d79"
 
 [[assets]]
   name = "team-pulse"
@@ -707,7 +708,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/team-pulse-3.zip"
     size = 5380
-    hashes = {sha256 = "89650d7e8eb74a78b99ffc434ccb466b3c5e43c5ad6bf3e8e74309f245df7b84"}
+    [assets.source-http.hashes]
+      sha256 = "89650d7e8eb74a78b99ffc434ccb466b3c5e43c5ad6bf3e8e74309f245df7b84"
 
 [[assets]]
   name = "repo-doctor"
@@ -716,7 +718,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-doctor-3.zip"
     size = 5181
-    hashes = {sha256 = "b79b707fe68e14833a8c5f2b1bc46b80446597ce4f20170fa874bd4544893df5"}
+    [assets.source-http.hashes]
+      sha256 = "b79b707fe68e14833a8c5f2b1bc46b80446597ce4f20170fa874bd4544893df5"
 
 [[assets]]
   name = "repo-sync-status"
@@ -725,7 +728,8 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/repo-sync-status-3.zip"
     size = 4778
-    hashes = {sha256 = "0b992a181fe59f7f5e3393fb15b6aec51633ef179c1ac0415748a74c86998ead"}
+    [assets.source-http.hashes]
+      sha256 = "0b992a181fe59f7f5e3393fb15b6aec51633ef179c1ac0415748a74c86998ead"
 
 [[assets]]
   name = "activity-heatmap"
@@ -734,4 +738,12 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   [assets.source-http]
     url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/activity-heatmap-7.zip"
     size = 5097
-    hashes = {sha256 = "3e0865041e82c5ca3b7637e136a1002b13bd2fb28498e16a6c715d38a5d92689"}
+    [assets.source-http.hashes]
+      sha256 = "3e0865041e82c5ca3b7637e136a1002b13bd2fb28498e16a6c715d38a5d92689"
+
+[[assets]]
+  name = "recent-assets"
+  version = "4"
+  type = "app-plugin"
+  [assets.source-path]
+    path = ".sx/versions/recent-assets/4"
