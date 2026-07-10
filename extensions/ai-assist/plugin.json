@@ -1,7 +1,7 @@
 {
   "id": "ai-assist",
   "name": "AI Assist",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "minAppVersion": "2.2.0",
   "description": "Ask questions about your library and get cited, data-backed answers (the assistant looks up usage, teams, changes, and asset contents on demand), critique the draft you have open as a prompt, or turn a plain-language description into a new skill draft — powered by the AI provider you configure in Settings.",
   "author": "sx",

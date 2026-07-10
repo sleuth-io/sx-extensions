@@ -99,6 +99,12 @@ async function pool(items, n, fn) {
   );
 }
 
+function askPlaceholder(provider) {
+  return provider
+    ? "Ask about your library…"
+    : "Configure an AI provider in Settings, then ask about your library…";
+}
+
 function assetMarkdown(files) {
   const md = files
     .filter((f) => f.path.toLowerCase().endsWith(".md"))
@@ -169,8 +175,10 @@ export default class AIAssist {
     let disposed = false;
     let composer = null;
     let rerender = null;
+    let providerWatch = null;
     view.onDispose(() => {
       disposed = true;
+      if (providerWatch !== null) clearInterval(providerWatch);
       if (rerender && this.rerender === rerender) this.rerender = null;
       if (composer && this.composerState === composer) this.composerState = null;
     });
@@ -189,7 +197,8 @@ export default class AIAssist {
         "max-width: 900px; width: 100%; margin: 0 auto; gap: 10px;",
     );
     root.appendChild(inner);
-    inner.appendChild(this.providerRow(provider));
+    let providerRowEl = this.providerRow(provider);
+    inner.appendChild(providerRowEl);
 
     const scroller = el("div", "flex: 1; overflow-y: auto; min-height: 0;");
     const thread = el("div", "display: flex; flex-direction: column; gap: 10px; padding: 2px;");
@@ -199,6 +208,28 @@ export default class AIAssist {
     composer = this.composer(provider);
     inner.appendChild(composer.row);
     this.composerState = composer;
+
+    // Settings opens as a modal OVER this still-mounted view, so no
+    // remount ever re-checks the provider: without a poll the row (and
+    // the composer's nudge) sits stale after the user configures or
+    // removes one right through the row's own settings link. Poll while
+    // mounted — both directions — and swap the row in place on change.
+    let knownProvider = provider;
+    providerWatch = setInterval(() => {
+      void this.sx.llm
+        .provider()
+        .then((p) => {
+          if (disposed || p === knownProvider) return;
+          knownProvider = p;
+          const fresh = this.providerRow(p);
+          providerRowEl.replaceWith(fresh);
+          providerRowEl = fresh;
+          if (composer && composer.mode !== "new-skill") {
+            composer.input.placeholder = askPlaceholder(p);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
 
     rerender = () => {
       thread.replaceChildren();
@@ -290,9 +321,7 @@ export default class AIAssist {
     const row = el("div", "display: flex; gap: 8px; align-items: flex-end;");
     const input = el("textarea", INPUT + "flex: 1; resize: none; min-height: 40px; max-height: 140px;");
     input.rows = 2;
-    input.placeholder = provider
-      ? "Ask about your library…"
-      : "Configure an AI provider in Settings, then ask about your library…";
+    input.placeholder = askPlaceholder(provider);
     const send = el("button", PRIMARY, "Ask");
     const state = { row, input, mode: "ask" };
     const submit = () => {
