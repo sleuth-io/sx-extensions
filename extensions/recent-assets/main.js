@@ -124,45 +124,44 @@ export default class RecentAssets {
     }
     for (const row of rows) {
       const pinned = this.pins.has(row.name);
+      // One quiet line per asset, in the sidebar's own row grammar
+      // (13px rows are core navigation; these are 12px and ink-soft so
+      // the panel reads as subordinate content, not more nav). The
+      // actor and week count live in the tooltip, not the row.
       const item = el(
         "div",
-        "display: flex; align-items: center; gap: 6px; padding: 4px 6px;" +
+        "display: flex; align-items: center; gap: 6px; padding: 3px 8px;" +
           "border-radius: 6px; cursor: pointer;",
       );
+      const details = [];
+      if (row.when) details.push(relativeTime(row.when));
+      if (row.actor) details.push(row.actor.split("@")[0]);
+      if (row.week > 1) details.push(row.week + " uses this week");
+      item.title = row.name + (details.length ? " — " + details.join(" · ") : "");
       item.addEventListener("mouseenter", () => {
         item.style.background = "var(--color-canvas)";
+        name.style.color = "var(--color-ink)";
         pin.style.visibility = "visible";
       });
       item.addEventListener("mouseleave", () => {
         item.style.background = "transparent";
+        name.style.color = "var(--color-ink-soft)";
         pin.style.visibility = pinned ? "visible" : "hidden";
       });
       item.addEventListener("click", () => this.sx.ui.openAsset(row.name));
 
-      const label = el("div", "min-width: 0; flex: 1;");
-      const nameLine = el("div", "display: flex; align-items: baseline; gap: 5px;");
-      nameLine.append(
-        el(
-          "span",
-          "font-size: 12px; color: var(--color-ink); white-space: nowrap;" +
-            "overflow: hidden; text-overflow: ellipsis;",
-          row.name,
-        ),
+      const name = el(
+        "span",
+        "font-size: 12px; color: var(--color-ink-soft); min-width: 0; flex: 1;" +
+          "white-space: nowrap; overflow: hidden; text-overflow: ellipsis;",
+        row.name,
       );
-      if (row.week > 1) {
-        nameLine.append(el("span", FAINT + "font-size: 10px;", "×" + row.week));
-      }
-      label.append(nameLine);
-      if (row.when) {
-        label.append(
-          el(
-            "div",
-            FAINT + "font-size: 10px;",
-            relativeTime(row.when) + (row.actor ? " · " + row.actor.split("@")[0] : ""),
-          ),
-        );
-      }
-      item.append(label);
+      const meta = el(
+        "span",
+        FAINT + "font-size: 10px; white-space: nowrap;",
+        row.when ? relativeTime(row.when) : "",
+      );
+      item.append(name, meta);
 
       const pin = el(
         "button",
