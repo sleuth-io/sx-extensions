@@ -6,4 +6,4 @@ description = "Generate evals for skills, benchmark them with-vs-without the ski
 
 [app-plugin]
 entry = "main.js"
-permissions = ["assets:read", "usage:read", "drafts:write", "llm:use", "storage:shared", "views:main", "views:asset-tab", "commands", "events", "assets:write-metadata"]
+permissions = ["assets:read", "usage:read", "drafts:write", "llm:use", "storage:shared", "benchmarks", "views:main", "views:asset-tab", "commands", "events", "assets:write-metadata"]

@@ -6,6 +6,9 @@ import {
   annotate,
   statusCode,
   skillStatus,
+  rowIsStale,
+  toInterchange,
+  fromInterchange,
   attentionScore,
   retireRank,
   mean,
@@ -109,6 +112,84 @@ test("attentionScore flags stale hash and provider change; dismissal dampens", (
 test("retireRank grows with baseline pass rate and usage", () => {
   assert.ok(retireRank({ bp: 0.9 }, 100) > retireRank({ bp: 0.9 }, 1));
   assert.ok(retireRank({ bp: 0.95 }, 10) > retireRank({ bp: 0.8 }, 10));
+});
+
+test("interchange round-trip: extension aggregate → record → verdict row", () => {
+  const agg = {
+    with: { passMean: 0.9, passStddev: 0.05, durMs: 2500, tokens: 1200 },
+    without: { passMean: 0.5, passStddev: 0.1, durMs: 2000, tokens: 900 },
+    delta: 0.4,
+    annotation: "strong skill impact",
+  };
+  const record = toInterchange({
+    agg,
+    perEval: [{ key: "a", withPass: 1, withoutPass: 0.5, status: "passing" }],
+    provider: "claude-cli",
+    model: "claude-sonnet-4-6",
+    reps: 3,
+    skillHash: "a1b2c3d4",
+    by: "detkin@sleuth.io",
+    at: 1760000000000,
+  });
+  assert.equal(record.source, "app");
+  assert.equal(record.summary.with_skill.pass_rate.mean, 0.9);
+  assert.equal(record.summary.delta.pass_rate, 0.4);
+  assert.equal(record.summary.with_skill.time_seconds.mean, 2.5);
+  assert.equal(record.summary.delta.tokens, 300);
+  assert.deepEqual(record.notes, ["strong skill impact"]);
+  assert.equal(record.per_eval[0].eval_key, "a");
+
+  const row = fromInterchange(record);
+  assert.equal(row.s, "H");
+  assert.equal(row.wp, 0.9);
+  assert.equal(row.bp, 0.5);
+  assert.equal(row.d, 0.4);
+  assert.equal(row.sh, "a1b2c3d4");
+  assert.equal(row.pm, "claude-cli");
+  assert.equal(row.src, "app");
+  assert.equal(row.reps, 3);
+  assert.equal(row.at, 1760000000);
+  assert.equal(row.perEval[0].key, "a");
+});
+
+test("fromInterchange handles server records and junk", () => {
+  const server = fromInterchange({
+    at: "2026-03-31T11:08:00Z",
+    source: "server",
+    executor: { provider: "server", model: "claude-sonnet-4-6" },
+    runs_per_config: 1,
+    summary: {
+      with_skill: { pass_rate: { mean: 0.83 } },
+      without_skill: { pass_rate: { mean: 0.42 } },
+      delta: { pass_rate: 0.42 },
+    },
+    skill_version: "4",
+    is_current_version: false,
+  });
+  assert.equal(server.src, "server");
+  assert.equal(server.icv, false);
+  assert.equal(server.s, "H");
+  assert.equal(server.perEval, null);
+
+  assert.equal(fromInterchange(null), null);
+  assert.equal(fromInterchange({ nope: 1 }), null);
+});
+
+test("rowIsStale: hash for app rows, is_current_version for server rows", () => {
+  const app = { src: "app", sh: "aaaa", pm: "claude-cli", icv: null };
+  assert.equal(rowIsStale(app, "aaaa", "claude-cli"), false);
+  assert.equal(rowIsStale(app, "bbbb", "claude-cli"), true);
+  assert.equal(rowIsStale(app, "aaaa", "ollama"), true); // provider changed
+
+  const server = { src: "server", sh: null, pm: "server", icv: true };
+  assert.equal(rowIsStale(server, "whatever", "claude-cli"), false); // provider-agnostic
+  assert.equal(rowIsStale({ ...server, icv: false }, "whatever", "claude-cli"), true);
+
+  // Legacy sharedStorage rows (no src/icv) behave as before.
+  const legacy = { s: "H", sh: "aaaa", pm: "codex" };
+  assert.equal(rowIsStale(legacy, "aaaa", "codex"), false);
+  assert.equal(rowIsStale(legacy, "bbbb", "codex"), true);
+  assert.equal(rowIsStale(legacy, "aaaa", "claude"), true);
 });
 
 test("mean/stddev basics", () => {

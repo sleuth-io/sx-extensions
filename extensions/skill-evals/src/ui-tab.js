@@ -1,9 +1,15 @@
-// The per-skill "Evals" tab: see the skill's evals, generate new ones
-// into a draft, run/resume benchmarks, and read the last run's verdict.
+// The per-skill "Evals" tab, styled after skills.new's: an action
+// toolbar, an impact panel (badge + With/Without bars), collapsible
+// per-eval results, tight eval cards, and the unified benchmark history.
 
-import { el, chip, rateBar, fmtPct, fmtAgo, FAINT, SOFT, CARD, BUTTON, PRIMARY, NOTE } from "./dom.js";
+import { el, chip, fmtPct, fmtAgo, FAINT, SOFT, CARD, BUTTON, SMALL_BUTTON, NOTE } from "./dom.js";
 import { findEvalsFile, parseEvals, activeEvals } from "./evals.js";
 import { generateEvals, writeEvalsDraft, DEFAULT_COUNT } from "./generate.js";
+import { DELTA_MARGINAL, DELTA_NONE } from "./health.js";
+
+const TOOL =
+  "background: none; border: 0; padding: 4px 6px; font: inherit; font-size: 12px;" +
+  "font-weight: 500; cursor: pointer; color: var(--color-accent); white-space: nowrap;";
 
 export async function mountTab(plugin, view, ctx) {
   const sx = plugin.sx;
@@ -16,11 +22,11 @@ export async function mountTab(plugin, view, ctx) {
     evals: [],
     invalid: false,
     provider: "",
-    latest: null, // newest local RunSummary
-    detail: null, // local RunDetail for this skill
-    sharedRow: null,
+    history: [], // normalized verdict rows, newest first (unified store)
+    detail: null, // local RunDetail (grade transcripts stay per-user)
     inProgress: null,
     busy: "",
+    perEvalOpen: false,
     expanded: new Set(),
     reps: 1,
   };
@@ -51,11 +57,11 @@ export async function mountTab(plugin, view, ctx) {
   async function refresh() {
     state.loading = true;
     rerender();
-    const [assets, provider, local, shared] = await Promise.all([
+    const [assets, provider, local, history] = await Promise.all([
       sx.assets.list().catch(() => []),
       sx.llm.provider().catch(() => ""),
       plugin.loadLocal(),
-      plugin.loadShared(),
+      plugin.benchmarkHistory(name),
     ]);
     const summary = assets.find((a) => a.name === name);
     state.isSkill = !summary || summary.type === "skill";
@@ -67,10 +73,9 @@ export async function mountTab(plugin, view, ctx) {
       state.evals = parsed.evals;
       state.invalid = parsed.invalid;
     }
-    state.latest = (local.runs[name] || []).at(-1) || null;
+    state.history = history;
     state.detail = local.detail[name] || null;
     state.inProgress = local.inProgress?.skill === name ? local.inProgress : null;
-    state.sharedRow = shared.skills[name] || null;
     state.loading = false;
     rerender();
   }
@@ -136,69 +141,156 @@ export async function mountTab(plugin, view, ctx) {
     return row;
   }
 
-  function verdictStrip() {
-    const wrap = el("div", CARD);
-    const counts = `${state.evals.length} evals · ${activeEvals(state.evals).length} active`;
-    const head = el("div", "display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;");
-    head.append(el("div", "font-weight: 600; font-size: 13px;", counts));
-    const s = state.latest;
-    if (s) {
-      head.append(
-        el(
-          "span",
-          FAINT + "font-size: 12px;",
-          `Last benchmark ${fmtAgo(s.at)} on ${s.provider}${s.errors ? ` · ${s.errors} cells failed to grade` : ""}`,
-        ),
-      );
-      wrap.append(head);
-      const bars = el("div", "display: flex; gap: 18px; flex-wrap: wrap; align-items: center;");
-      bars.append(rateBar("with", s.agg.with.passMean), rateBar("without", s.agg.without.passMean));
-      const deltaTone = s.agg.delta > 0.05 ? "accent" : "danger";
-      bars.append(chip(`delta ${s.agg.delta >= 0 ? "+" : ""}${s.agg.delta}`, deltaTone));
-      if (s.agg.annotation) bars.append(el("span", SOFT + "font-size: 12px;", s.agg.annotation));
-      wrap.append(bars);
-    } else if (state.sharedRow) {
-      const r = state.sharedRow;
-      head.append(
-        el(
-          "span",
-          FAINT + "font-size: 12px;",
-          `Benchmarked by ${r.by || "a teammate"} ${fmtAgo(r.at * 1000)} on ${r.pm}: with ${fmtPct(
-            r.wp,
-          )} vs baseline ${fmtPct(r.bp)} (delta ${r.d >= 0 ? "+" : ""}${r.d}).`,
-        ),
-      );
-      wrap.append(head);
-    } else {
-      head.append(el("span", FAINT + "font-size: 12px;", "Never benchmarked."));
-      wrap.append(head);
-    }
-    return wrap;
-  }
-
-  function actionsRow() {
-    const row = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
-    const gen = el("button", state.evals.length ? BUTTON : PRIMARY, `Generate ${DEFAULT_COUNT} evals`);
-    gen.onclick = () => void onGenerate(false);
-    row.append(gen);
+  /** "Evals · 12 (10 active)" plus the skills.new-style action toolbar. */
+  function toolbar() {
+    const row = el(
+      "div",
+      "display: flex; gap: 2px; align-items: center; flex-wrap: wrap; padding: 2px 0;" +
+        "border-bottom: 1px solid var(--color-line); padding-bottom: 8px;",
+    );
+    row.append(
+      el("div", "font-weight: 600; font-size: 13px; margin-right: 6px;", "Evals"),
+      el(
+        "span",
+        FAINT + "font-size: 12px; margin-right: auto;",
+        state.evals.length ? `${state.evals.length} · ${activeEvals(state.evals).length} active` : "none yet",
+      ),
+    );
     if (state.evals.length) {
-      const regen = el("button", BUTTON, "Regenerate all…");
-      regen.onclick = () => void onGenerate(true);
-      row.append(regen);
-
-      const reps = el("select", BUTTON + "padding: 4px 6px;");
+      const run = el("button", TOOL, "▷ Run benchmark");
+      run.onclick = () => void plugin.startBenchmark(name, state.reps).then(refresh);
+      const reps = el("select", SMALL_BUTTON + "padding: 2px 4px;");
       for (const n of [1, 3]) {
-        const opt = el("option", "", `${n} run${n > 1 ? "s" : ""}/config`);
+        const opt = el("option", "", `×${n}`);
         opt.value = String(n);
         reps.append(opt);
       }
+      reps.title = "Runs per configuration";
       reps.value = String(state.reps);
       reps.onchange = () => (state.reps = Number(reps.value));
-      const run = el("button", PRIMARY, "Run benchmark");
-      run.onclick = () => void plugin.startBenchmark(name, state.reps).then(refresh);
-      row.append(reps, run);
+      row.append(run, reps, el("span", FAINT, "·"));
+    }
+    const gen = el("button", TOOL, "✦ Generate");
+    gen.onclick = () => void onGenerate(false);
+    row.append(gen);
+    if (state.evals.length) {
+      const regen = el("button", TOOL, "↻ Re-generate all");
+      regen.onclick = () => void onGenerate(true);
+      row.append(regen);
     }
     return row;
+  }
+
+  function bar(label, rate, tone) {
+    const row = el("div", "display: flex; align-items: center; gap: 10px;");
+    const track = el(
+      "div",
+      "flex: 1; height: 7px; border-radius: 999px; background: var(--color-canvas);" +
+        "border: 1px solid var(--color-line); overflow: hidden;",
+    );
+    track.append(
+      el(
+        "div",
+        `height: 100%; width: ${Math.round(Math.max(0, Math.min(1, rate)) * 100)}%; background: ${tone};`,
+      ),
+    );
+    row.append(
+      el("span", FAINT + "font-size: 12px; width: 56px;", label),
+      track,
+      el("span", SOFT + "font-size: 12px; width: 44px; text-align: right;", fmtPct(rate)),
+    );
+    return row;
+  }
+
+  /** The skills.new-style impact panel: hex badge, three bars, date,
+   * and a collapsible per-eval breakdown. */
+  function impactPanel() {
+    const latest = state.history[0];
+    if (!latest) {
+      return el(
+        "div",
+        NOTE,
+        "Never benchmarked. Run a benchmark to measure this skill's impact — with-skill vs without-skill, graded by your AI provider.",
+      );
+    }
+    const good = latest.d >= DELTA_MARGINAL;
+    const bad = latest.d <= DELTA_NONE;
+    const badgeColor = good ? "#0e9f6e" : bad ? "var(--color-danger)" : "var(--color-ink-faint)";
+    const panel = el("div", CARD + "gap: 10px;");
+
+    const top = el("div", "display: flex; gap: 16px; align-items: center;");
+    const badge = el(
+      "div",
+      `width: 76px; height: 84px; flex: none; display: flex; align-items: center; justify-content: center;` +
+        `background: ${badgeColor}; color: white; font-weight: 700; font-size: 17px;` +
+        `clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);`,
+      `${latest.d >= 0 ? "+" : ""}${Math.round(latest.d * 100)}%`,
+    );
+    const bars = el("div", "flex: 1; display: flex; flex-direction: column; gap: 7px;");
+    bars.append(
+      bar("Impact", Math.abs(latest.d), badgeColor),
+      bar("With", latest.wp, "#0e9f6e"),
+      bar("Without", latest.bp, "var(--color-ink-faint)"),
+    );
+    top.append(badge, bars);
+    panel.append(top);
+
+    const perEval = latest.perEval?.length
+      ? latest.perEval
+      : (state.history.find((h) => h.perEval?.length) || {}).perEval;
+    const foot = el("div", "display: flex; gap: 8px; align-items: center;");
+    if (perEval?.length) {
+      const toggle = el(
+        "a",
+        FAINT + "font-size: 12px; cursor: pointer;",
+        `${state.perEvalOpen ? "▾" : "▸"} Per-eval results`,
+      );
+      toggle.onclick = () => {
+        state.perEvalOpen = !state.perEvalOpen;
+        rerender();
+      };
+      foot.append(toggle);
+    }
+    const who = latest.src === "server" ? "skills.new" : latest.pm || "app";
+    foot.append(
+      el(
+        "span",
+        FAINT + "font-size: 11px; margin-left: auto;",
+        `${fmtAgo(latest.at * 1000)} · ${who}${latest.by ? ` · ${latest.by}` : ""}${
+          latest.notes?.length ? ` · ${latest.notes[0]}` : ""
+        }`,
+      ),
+    );
+    panel.append(foot);
+
+    if (state.perEvalOpen && perEval?.length) {
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      for (const p of perEval) {
+        const line = el("div", "display: flex; gap: 10px; align-items: center; font-size: 12px;");
+        line.append(
+          el("code", "font-family: var(--font-mono); font-size: 11px; min-width: 180px;", p.key),
+          chip(
+            p.status.replace(/_/g, " "),
+            p.status === "passing" ? "accent" : p.status === "failing" ? "danger" : "faint",
+          ),
+          el("span", SOFT, `with ${fmtPct(p.withPass)} · without ${fmtPct(p.withoutPass)}`),
+        );
+        list.append(line);
+      }
+      panel.append(list);
+    }
+
+    if (state.history.length > 1) {
+      const prev = state.history
+        .slice(1, 4)
+        .map(
+          (h) =>
+            `${fmtAgo(h.at * 1000)} Δ ${h.d >= 0 ? "+" : ""}${h.d} (${h.src === "server" ? "skills.new" : "app"})`,
+        )
+        .join(" · ");
+      panel.append(el("div", FAINT + "font-size: 11px;", `Previous runs: ${prev}`));
+    }
+    return panel;
   }
 
   function runStrip() {
@@ -210,7 +302,7 @@ export async function mountTab(plugin, view, ctx) {
       `Benchmarking ${r.skill}… ${r.done}/${r.total} cells`,
     );
     if (r.skill === name) {
-      const cancel = el("button", BUTTON, "Cancel");
+      const cancel = el("button", SMALL_BUTTON, "Cancel");
       cancel.onclick = () => plugin.cancelBenchmark();
       strip.append(cancel);
     }
@@ -224,23 +316,24 @@ export async function mountTab(plugin, view, ctx) {
       NOTE + "display: flex; gap: 10px; align-items: center;",
       `An interrupted benchmark for ${name} has ${state.inProgress.cells?.length || 0} finished cells.`,
     );
-    const resume = el("button", PRIMARY, "Resume");
+    const resume = el("button", BUTTON, "Resume");
     resume.onclick = () => void plugin.resumeBenchmark().then(refresh);
-    const discard = el("button", BUTTON, "Discard");
+    const discard = el("button", SMALL_BUTTON, "Discard");
     discard.onclick = () => void plugin.discardInProgress().then(refresh);
     row.append(resume, discard);
     return row;
   }
 
   function evalCard(spec) {
-    const card = el("div", CARD + (spec.is_active ? "" : "opacity: 0.55;"));
+    const latest = state.history[0];
+    const card = el("div", CARD + "gap: 6px;" + (spec.is_active ? "" : "opacity: 0.55;"));
     const head = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
     head.append(
-      el("code", "font-family: var(--font-mono); font-size: 12px;", spec.eval_key),
+      el("code", "font-family: var(--font-mono); font-size: 12px; font-weight: 600;", spec.eval_key),
       chip(spec.category, spec.category === "edge-case" ? "accent" : "faint"),
     );
     if (!spec.is_active) head.append(chip("inactive", "faint"));
-    const per = state.latest?.perEval.find((p) => p.key === spec.eval_key);
+    const per = latest?.perEval?.find((p) => p.key === spec.eval_key);
     if (per) {
       head.append(
         chip(
@@ -249,44 +342,47 @@ export async function mountTab(plugin, view, ctx) {
         ),
       );
     }
-    card.append(head, el("div", "font-size: 13px; line-height: 1.45;", spec.prompt));
-    const exp = el("ul", "margin: 0; padding-left: 18px; font-size: 12px;" + SOFT);
-    for (const x of spec.expectations) exp.append(el("li", "", x));
-    card.append(exp);
-    if (per) {
-      const bars = el("div", "display: flex; gap: 18px; flex-wrap: wrap;");
-      bars.append(rateBar("with", per.withPass), rateBar("without", per.withoutPass));
-      card.append(bars);
-    }
-    const cells = (state.detail?.cells || []).filter((c) => c.evalKey === spec.eval_key);
-    if (cells.length) {
-      const toggle = el(
-        "a",
-        FAINT + "font-size: 12px; cursor: pointer; text-decoration: underline;",
-        state.expanded.has(spec.eval_key) ? "Hide last run detail" : "Show last run detail",
-      );
-      toggle.onclick = () => {
-        state.expanded.has(spec.eval_key)
-          ? state.expanded.delete(spec.eval_key)
-          : state.expanded.add(spec.eval_key);
-        rerender();
-      };
-      card.append(toggle);
-      if (state.expanded.has(spec.eval_key)) {
-        for (const c of cells) {
-          const box = el("div", NOTE);
-          const title = c.error
-            ? `${c.config} · run ${c.rep} · errored: ${c.error}`
-            : `${c.config} · run ${c.rep} · ${fmtPct(c.passRate)}`;
-          box.append(el("div", "font-weight: 600; font-size: 12px;", title));
-          for (const g of c.grades || []) {
-            box.append(el("div", (g.pass ? SOFT : "color: var(--color-danger);") + "font-size: 12px;", `${g.pass ? "✓" : "✗"} ${g.text} — ${g.reason}`));
-          }
-          if (c.output) {
-            box.append(el("div", FAINT + "font-size: 11px; white-space: pre-wrap; font-family: var(--font-mono);", c.output));
-          }
-          card.append(box);
+    card.append(head);
+
+    const prompt = el("div", SOFT + "font-size: 12px; line-height: 1.5;", spec.prompt);
+    prompt.style.display = "-webkit-box";
+    prompt.style.webkitLineClamp = "2";
+    prompt.style.webkitBoxOrient = "vertical";
+    prompt.style.overflow = "hidden";
+    card.append(prompt);
+
+    const open = state.expanded.has(spec.eval_key);
+    const toggle = el(
+      "a",
+      FAINT + "font-size: 12px; cursor: pointer;",
+      `${open ? "▾" : "▸"} ${spec.expectations.length} expectation${spec.expectations.length === 1 ? "" : "s"}`,
+    );
+    toggle.onclick = () => {
+      open ? state.expanded.delete(spec.eval_key) : state.expanded.add(spec.eval_key);
+      rerender();
+    };
+    card.append(toggle);
+
+    if (open) {
+      const exp = el("ul", "margin: 0; padding-left: 18px; font-size: 12px;" + SOFT);
+      for (const x of spec.expectations) exp.append(el("li", "", x));
+      card.append(exp);
+      for (const c of (state.detail?.cells || []).filter((x) => x.evalKey === spec.eval_key)) {
+        const box = el("div", NOTE);
+        const title = c.error
+          ? `${c.config} · run ${c.rep} · errored: ${c.error}`
+          : `${c.config} · run ${c.rep} · ${fmtPct(c.passRate)}`;
+        box.append(el("div", "font-weight: 600; font-size: 12px;", title));
+        for (const g of c.grades || []) {
+          box.append(
+            el(
+              "div",
+              (g.pass ? SOFT : "color: var(--color-danger);") + "font-size: 12px;",
+              `${g.pass ? "✓" : "✗"} ${g.text} — ${g.reason}`,
+            ),
+          );
         }
+        card.append(box);
       }
     }
     return card;
@@ -306,7 +402,7 @@ export async function mountTab(plugin, view, ctx) {
     const banner = resumeBanner();
     if (banner) out.push(banner);
     if (state.busy) out.push(el("div", NOTE, state.busy));
-    out.push(verdictStrip(), actionsRow());
+    out.push(toolbar(), impactPanel());
     if (state.invalid) {
       out.push(el("div", NOTE + "color: var(--color-danger);", "evals/evals.json exists but couldn't be parsed — regenerate or fix it by hand."));
     }

@@ -210,6 +210,66 @@ function annotate(w, wo, delta) {
   if (delta >= DELTA_STRONG) return "strong skill impact";
   return "";
 }
+function toInterchange({ agg, perEval, provider, model, reps, skillHash: skillHash2, by, at }) {
+  const stats = (side) => ({
+    pass_rate: { mean: side.passMean, stddev: side.passStddev },
+    time_seconds: { mean: round2((side.durMs || 0) / 1e3) },
+    tokens: { mean: side.tokens || 0 }
+  });
+  return {
+    at: new Date(at).toISOString(),
+    source: "app",
+    executor: { provider, model: model || "" },
+    runs_per_config: reps,
+    by: by || "",
+    summary: {
+      with_skill: stats(agg.with),
+      without_skill: stats(agg.without),
+      delta: {
+        pass_rate: agg.delta,
+        time_seconds: round2(((agg.with.durMs || 0) - (agg.without.durMs || 0)) / 1e3),
+        tokens: (agg.with.tokens || 0) - (agg.without.tokens || 0)
+      }
+    },
+    per_eval: perEval.map((p) => ({
+      eval_key: p.key,
+      with_pass: p.withPass,
+      without_pass: p.withoutPass,
+      status: p.status
+    })),
+    notes: agg.annotation ? [agg.annotation] : [],
+    skill_hash: skillHash2
+  };
+}
+function fromInterchange(record) {
+  if (!record || typeof record !== "object" || !record.summary) return null;
+  const rate = (side) => record.summary?.[side]?.pass_rate?.mean;
+  const wp = round2(Number(rate("with_skill") ?? 0));
+  const bp = round2(Number(rate("without_skill") ?? 0));
+  const d = round2(Number(record.summary?.delta?.pass_rate ?? wp - bp));
+  const atMs = Date.parse(record.at || "") || 0;
+  return {
+    s: statusCode(wp, bp, d),
+    wp,
+    bp,
+    d,
+    at: Math.round(atMs / 1e3),
+    sh: record.skill_hash || null,
+    icv: record.is_current_version ?? null,
+    pm: record.executor?.provider || "",
+    model: record.executor?.model || "",
+    by: record.by || "",
+    src: record.source === "server" ? "server" : "app",
+    reps: record.runs_per_config || 1,
+    perEval: Array.isArray(record.per_eval) ? record.per_eval.map((p) => ({
+      key: p.eval_key,
+      withPass: Number(p.with_pass ?? 0),
+      withoutPass: Number(p.without_pass ?? 0),
+      status: p.status || classifyEval(Number(p.with_pass ?? 0), Number(p.without_pass ?? 0))
+    })) : null,
+    notes: Array.isArray(record.notes) ? record.notes : []
+  };
+}
 function statusCode(withPass, withoutPass, delta) {
   if (withPass < PASS_BAR) return "F";
   if (withoutPass >= PASS_BAR && delta <= DELTA_NONE) return "R";
@@ -219,11 +279,16 @@ function statusCode(withPass, withoutPass, delta) {
 function skillStatus({ hasEvals, row, currentHash, provider }) {
   if (!hasEvals) return "no-evals";
   if (!row) return "not-benchmarked";
-  if (row.sh !== currentHash || provider && row.pm && row.pm !== provider) return "stale";
+  if (rowIsStale(row, currentHash, provider)) return "stale";
   if (row.s === "F") return "failing";
   if (row.s === "R") return "retire-candidate";
   if (row.s === "M") return "marginal";
   return "healthy";
+}
+function rowIsStale(row, currentHash, provider) {
+  if (row.icv === false) return true;
+  if (row.sh && row.sh !== currentHash) return true;
+  return !!(row.src !== "server" && provider && row.pm && row.pm !== provider);
 }
 function attentionScore({
   hasEvals,
@@ -246,11 +311,11 @@ function attentionScore({
     score += 30;
     reasons.push("never benchmarked");
   } else {
-    if (row.sh !== currentHash) {
+    if (row.icv === false || row.sh && row.sh !== currentHash) {
       score += 22;
       reasons.push("benchmark stale");
     }
-    if (provider && row.pm && row.pm !== provider) {
+    if (row.src !== "server" && provider && row.pm && row.pm !== provider) {
       score += 12;
       reasons.push(`benchmarked on ${row.pm}`);
     }
@@ -543,20 +608,6 @@ function chip(text, tone) {
     text
   );
 }
-function rateBar(label, rate) {
-  const wrap = el("div", "display: flex; align-items: center; gap: 6px; font-size: 11px;");
-  const track = el(
-    "div",
-    "width: 72px; height: 6px; border-radius: 999px; background: var(--color-canvas);border: 1px solid var(--color-line); overflow: hidden;"
-  );
-  const fill = el(
-    "div",
-    `height: 100%; width: ${Math.round(rate * 100)}%; background: ${rate >= 0.8 ? "var(--color-accent)" : "var(--color-danger)"};`
-  );
-  track.append(fill);
-  wrap.append(el("span", FAINT + "min-width: 46px;", label), track, el("span", SOFT, fmtPct(rate)));
-  return wrap;
-}
 function fmtPct(x) {
   return `${Math.round(x * 100)}%`;
 }
@@ -665,6 +716,7 @@ async function writeEvalsDraft(sx, skillName, files, evals) {
 }
 
 // src/ui-tab.js
+var TOOL = "background: none; border: 0; padding: 4px 6px; font: inherit; font-size: 12px;font-weight: 500; cursor: pointer; color: var(--color-accent); white-space: nowrap;";
 async function mountTab(plugin, view, ctx) {
   const sx = plugin.sx;
   const name = ctx.assetName;
@@ -676,13 +728,13 @@ async function mountTab(plugin, view, ctx) {
     evals: [],
     invalid: false,
     provider: "",
-    latest: null,
-    // newest local RunSummary
+    history: [],
+    // normalized verdict rows, newest first (unified store)
     detail: null,
-    // local RunDetail for this skill
-    sharedRow: null,
+    // local RunDetail (grade transcripts stay per-user)
     inProgress: null,
     busy: "",
+    perEvalOpen: false,
     expanded: /* @__PURE__ */ new Set(),
     reps: 1
   };
@@ -709,11 +761,11 @@ async function mountTab(plugin, view, ctx) {
   async function refresh() {
     state.loading = true;
     rerender();
-    const [assets, provider, local, shared] = await Promise.all([
+    const [assets, provider, local, history] = await Promise.all([
       sx.assets.list().catch(() => []),
       sx.llm.provider().catch(() => ""),
       plugin.loadLocal(),
-      plugin.loadShared()
+      plugin.benchmarkHistory(name)
     ]);
     const summary = assets.find((a) => a.name === name);
     state.isSkill = !summary || summary.type === "skill";
@@ -725,10 +777,9 @@ async function mountTab(plugin, view, ctx) {
       state.evals = parsed.evals;
       state.invalid = parsed.invalid;
     }
-    state.latest = (local.runs[name] || []).at(-1) || null;
+    state.history = history;
     state.detail = local.detail[name] || null;
     state.inProgress = local.inProgress?.skill === name ? local.inProgress : null;
-    state.sharedRow = shared.skills[name] || null;
     state.loading = false;
     rerender();
   }
@@ -791,67 +842,135 @@ async function mountTab(plugin, view, ctx) {
     );
     return row;
   }
-  function verdictStrip() {
-    const wrap = el("div", CARD);
-    const counts = `${state.evals.length} evals \xB7 ${activeEvals(state.evals).length} active`;
-    const head = el("div", "display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;");
-    head.append(el("div", "font-weight: 600; font-size: 13px;", counts));
-    const s = state.latest;
-    if (s) {
-      head.append(
-        el(
-          "span",
-          FAINT + "font-size: 12px;",
-          `Last benchmark ${fmtAgo(s.at)} on ${s.provider}${s.errors ? ` \xB7 ${s.errors} cells failed to grade` : ""}`
-        )
-      );
-      wrap.append(head);
-      const bars = el("div", "display: flex; gap: 18px; flex-wrap: wrap; align-items: center;");
-      bars.append(rateBar("with", s.agg.with.passMean), rateBar("without", s.agg.without.passMean));
-      const deltaTone = s.agg.delta > 0.05 ? "accent" : "danger";
-      bars.append(chip(`delta ${s.agg.delta >= 0 ? "+" : ""}${s.agg.delta}`, deltaTone));
-      if (s.agg.annotation) bars.append(el("span", SOFT + "font-size: 12px;", s.agg.annotation));
-      wrap.append(bars);
-    } else if (state.sharedRow) {
-      const r = state.sharedRow;
-      head.append(
-        el(
-          "span",
-          FAINT + "font-size: 12px;",
-          `Benchmarked by ${r.by || "a teammate"} ${fmtAgo(r.at * 1e3)} on ${r.pm}: with ${fmtPct(
-            r.wp
-          )} vs baseline ${fmtPct(r.bp)} (delta ${r.d >= 0 ? "+" : ""}${r.d}).`
-        )
-      );
-      wrap.append(head);
-    } else {
-      head.append(el("span", FAINT + "font-size: 12px;", "Never benchmarked."));
-      wrap.append(head);
-    }
-    return wrap;
-  }
-  function actionsRow() {
-    const row = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
-    const gen = el("button", state.evals.length ? BUTTON : PRIMARY, `Generate ${DEFAULT_COUNT} evals`);
-    gen.onclick = () => void onGenerate(false);
-    row.append(gen);
+  function toolbar() {
+    const row = el(
+      "div",
+      "display: flex; gap: 2px; align-items: center; flex-wrap: wrap; padding: 2px 0;border-bottom: 1px solid var(--color-line); padding-bottom: 8px;"
+    );
+    row.append(
+      el("div", "font-weight: 600; font-size: 13px; margin-right: 6px;", "Evals"),
+      el(
+        "span",
+        FAINT + "font-size: 12px; margin-right: auto;",
+        state.evals.length ? `${state.evals.length} \xB7 ${activeEvals(state.evals).length} active` : "none yet"
+      )
+    );
     if (state.evals.length) {
-      const regen = el("button", BUTTON, "Regenerate all\u2026");
-      regen.onclick = () => void onGenerate(true);
-      row.append(regen);
-      const reps = el("select", BUTTON + "padding: 4px 6px;");
+      const run = el("button", TOOL, "\u25B7 Run benchmark");
+      run.onclick = () => void plugin.startBenchmark(name, state.reps).then(refresh);
+      const reps = el("select", SMALL_BUTTON + "padding: 2px 4px;");
       for (const n of [1, 3]) {
-        const opt = el("option", "", `${n} run${n > 1 ? "s" : ""}/config`);
+        const opt = el("option", "", `\xD7${n}`);
         opt.value = String(n);
         reps.append(opt);
       }
+      reps.title = "Runs per configuration";
       reps.value = String(state.reps);
       reps.onchange = () => state.reps = Number(reps.value);
-      const run = el("button", PRIMARY, "Run benchmark");
-      run.onclick = () => void plugin.startBenchmark(name, state.reps).then(refresh);
-      row.append(reps, run);
+      row.append(run, reps, el("span", FAINT, "\xB7"));
+    }
+    const gen = el("button", TOOL, "\u2726 Generate");
+    gen.onclick = () => void onGenerate(false);
+    row.append(gen);
+    if (state.evals.length) {
+      const regen = el("button", TOOL, "\u21BB Re-generate all");
+      regen.onclick = () => void onGenerate(true);
+      row.append(regen);
     }
     return row;
+  }
+  function bar(label, rate, tone) {
+    const row = el("div", "display: flex; align-items: center; gap: 10px;");
+    const track = el(
+      "div",
+      "flex: 1; height: 7px; border-radius: 999px; background: var(--color-canvas);border: 1px solid var(--color-line); overflow: hidden;"
+    );
+    track.append(
+      el(
+        "div",
+        `height: 100%; width: ${Math.round(Math.max(0, Math.min(1, rate)) * 100)}%; background: ${tone};`
+      )
+    );
+    row.append(
+      el("span", FAINT + "font-size: 12px; width: 56px;", label),
+      track,
+      el("span", SOFT + "font-size: 12px; width: 44px; text-align: right;", fmtPct(rate))
+    );
+    return row;
+  }
+  function impactPanel() {
+    const latest = state.history[0];
+    if (!latest) {
+      return el(
+        "div",
+        NOTE,
+        "Never benchmarked. Run a benchmark to measure this skill's impact \u2014 with-skill vs without-skill, graded by your AI provider."
+      );
+    }
+    const good = latest.d >= DELTA_MARGINAL;
+    const bad = latest.d <= DELTA_NONE;
+    const badgeColor = good ? "#0e9f6e" : bad ? "var(--color-danger)" : "var(--color-ink-faint)";
+    const panel = el("div", CARD + "gap: 10px;");
+    const top = el("div", "display: flex; gap: 16px; align-items: center;");
+    const badge = el(
+      "div",
+      `width: 76px; height: 84px; flex: none; display: flex; align-items: center; justify-content: center;background: ${badgeColor}; color: white; font-weight: 700; font-size: 17px;clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);`,
+      `${latest.d >= 0 ? "+" : ""}${Math.round(latest.d * 100)}%`
+    );
+    const bars = el("div", "flex: 1; display: flex; flex-direction: column; gap: 7px;");
+    bars.append(
+      bar("Impact", Math.abs(latest.d), badgeColor),
+      bar("With", latest.wp, "#0e9f6e"),
+      bar("Without", latest.bp, "var(--color-ink-faint)")
+    );
+    top.append(badge, bars);
+    panel.append(top);
+    const perEval = latest.perEval?.length ? latest.perEval : (state.history.find((h) => h.perEval?.length) || {}).perEval;
+    const foot = el("div", "display: flex; gap: 8px; align-items: center;");
+    if (perEval?.length) {
+      const toggle = el(
+        "a",
+        FAINT + "font-size: 12px; cursor: pointer;",
+        `${state.perEvalOpen ? "\u25BE" : "\u25B8"} Per-eval results`
+      );
+      toggle.onclick = () => {
+        state.perEvalOpen = !state.perEvalOpen;
+        rerender();
+      };
+      foot.append(toggle);
+    }
+    const who = latest.src === "server" ? "skills.new" : latest.pm || "app";
+    foot.append(
+      el(
+        "span",
+        FAINT + "font-size: 11px; margin-left: auto;",
+        `${fmtAgo(latest.at * 1e3)} \xB7 ${who}${latest.by ? ` \xB7 ${latest.by}` : ""}${latest.notes?.length ? ` \xB7 ${latest.notes[0]}` : ""}`
+      )
+    );
+    panel.append(foot);
+    if (state.perEvalOpen && perEval?.length) {
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      for (const p of perEval) {
+        const line = el("div", "display: flex; gap: 10px; align-items: center; font-size: 12px;");
+        line.append(
+          el("code", "font-family: var(--font-mono); font-size: 11px; min-width: 180px;", p.key),
+          chip(
+            p.status.replace(/_/g, " "),
+            p.status === "passing" ? "accent" : p.status === "failing" ? "danger" : "faint"
+          ),
+          el("span", SOFT, `with ${fmtPct(p.withPass)} \xB7 without ${fmtPct(p.withoutPass)}`)
+        );
+        list.append(line);
+      }
+      panel.append(list);
+    }
+    if (state.history.length > 1) {
+      const prev = state.history.slice(1, 4).map(
+        (h) => `${fmtAgo(h.at * 1e3)} \u0394 ${h.d >= 0 ? "+" : ""}${h.d} (${h.src === "server" ? "skills.new" : "app"})`
+      ).join(" \xB7 ");
+      panel.append(el("div", FAINT + "font-size: 11px;", `Previous runs: ${prev}`));
+    }
+    return panel;
   }
   function runStrip() {
     const r = plugin.activeRun;
@@ -862,7 +981,7 @@ async function mountTab(plugin, view, ctx) {
       `Benchmarking ${r.skill}\u2026 ${r.done}/${r.total} cells`
     );
     if (r.skill === name) {
-      const cancel = el("button", BUTTON, "Cancel");
+      const cancel = el("button", SMALL_BUTTON, "Cancel");
       cancel.onclick = () => plugin.cancelBenchmark();
       strip.append(cancel);
     }
@@ -875,22 +994,23 @@ async function mountTab(plugin, view, ctx) {
       NOTE + "display: flex; gap: 10px; align-items: center;",
       `An interrupted benchmark for ${name} has ${state.inProgress.cells?.length || 0} finished cells.`
     );
-    const resume = el("button", PRIMARY, "Resume");
+    const resume = el("button", BUTTON, "Resume");
     resume.onclick = () => void plugin.resumeBenchmark().then(refresh);
-    const discard = el("button", BUTTON, "Discard");
+    const discard = el("button", SMALL_BUTTON, "Discard");
     discard.onclick = () => void plugin.discardInProgress().then(refresh);
     row.append(resume, discard);
     return row;
   }
   function evalCard(spec) {
-    const card = el("div", CARD + (spec.is_active ? "" : "opacity: 0.55;"));
+    const latest = state.history[0];
+    const card = el("div", CARD + "gap: 6px;" + (spec.is_active ? "" : "opacity: 0.55;"));
     const head = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
     head.append(
-      el("code", "font-family: var(--font-mono); font-size: 12px;", spec.eval_key),
+      el("code", "font-family: var(--font-mono); font-size: 12px; font-weight: 600;", spec.eval_key),
       chip(spec.category, spec.category === "edge-case" ? "accent" : "faint")
     );
     if (!spec.is_active) head.append(chip("inactive", "faint"));
-    const per = state.latest?.perEval.find((p) => p.key === spec.eval_key);
+    const per = latest?.perEval?.find((p) => p.key === spec.eval_key);
     if (per) {
       head.append(
         chip(
@@ -899,40 +1019,42 @@ async function mountTab(plugin, view, ctx) {
         )
       );
     }
-    card.append(head, el("div", "font-size: 13px; line-height: 1.45;", spec.prompt));
-    const exp = el("ul", "margin: 0; padding-left: 18px; font-size: 12px;" + SOFT);
-    for (const x of spec.expectations) exp.append(el("li", "", x));
-    card.append(exp);
-    if (per) {
-      const bars = el("div", "display: flex; gap: 18px; flex-wrap: wrap;");
-      bars.append(rateBar("with", per.withPass), rateBar("without", per.withoutPass));
-      card.append(bars);
-    }
-    const cells = (state.detail?.cells || []).filter((c) => c.evalKey === spec.eval_key);
-    if (cells.length) {
-      const toggle = el(
-        "a",
-        FAINT + "font-size: 12px; cursor: pointer; text-decoration: underline;",
-        state.expanded.has(spec.eval_key) ? "Hide last run detail" : "Show last run detail"
-      );
-      toggle.onclick = () => {
-        state.expanded.has(spec.eval_key) ? state.expanded.delete(spec.eval_key) : state.expanded.add(spec.eval_key);
-        rerender();
-      };
-      card.append(toggle);
-      if (state.expanded.has(spec.eval_key)) {
-        for (const c of cells) {
-          const box = el("div", NOTE);
-          const title = c.error ? `${c.config} \xB7 run ${c.rep} \xB7 errored: ${c.error}` : `${c.config} \xB7 run ${c.rep} \xB7 ${fmtPct(c.passRate)}`;
-          box.append(el("div", "font-weight: 600; font-size: 12px;", title));
-          for (const g of c.grades || []) {
-            box.append(el("div", (g.pass ? SOFT : "color: var(--color-danger);") + "font-size: 12px;", `${g.pass ? "\u2713" : "\u2717"} ${g.text} \u2014 ${g.reason}`));
-          }
-          if (c.output) {
-            box.append(el("div", FAINT + "font-size: 11px; white-space: pre-wrap; font-family: var(--font-mono);", c.output));
-          }
-          card.append(box);
+    card.append(head);
+    const prompt = el("div", SOFT + "font-size: 12px; line-height: 1.5;", spec.prompt);
+    prompt.style.display = "-webkit-box";
+    prompt.style.webkitLineClamp = "2";
+    prompt.style.webkitBoxOrient = "vertical";
+    prompt.style.overflow = "hidden";
+    card.append(prompt);
+    const open = state.expanded.has(spec.eval_key);
+    const toggle = el(
+      "a",
+      FAINT + "font-size: 12px; cursor: pointer;",
+      `${open ? "\u25BE" : "\u25B8"} ${spec.expectations.length} expectation${spec.expectations.length === 1 ? "" : "s"}`
+    );
+    toggle.onclick = () => {
+      open ? state.expanded.delete(spec.eval_key) : state.expanded.add(spec.eval_key);
+      rerender();
+    };
+    card.append(toggle);
+    if (open) {
+      const exp = el("ul", "margin: 0; padding-left: 18px; font-size: 12px;" + SOFT);
+      for (const x of spec.expectations) exp.append(el("li", "", x));
+      card.append(exp);
+      for (const c of (state.detail?.cells || []).filter((x) => x.evalKey === spec.eval_key)) {
+        const box = el("div", NOTE);
+        const title = c.error ? `${c.config} \xB7 run ${c.rep} \xB7 errored: ${c.error}` : `${c.config} \xB7 run ${c.rep} \xB7 ${fmtPct(c.passRate)}`;
+        box.append(el("div", "font-weight: 600; font-size: 12px;", title));
+        for (const g of c.grades || []) {
+          box.append(
+            el(
+              "div",
+              (g.pass ? SOFT : "color: var(--color-danger);") + "font-size: 12px;",
+              `${g.pass ? "\u2713" : "\u2717"} ${g.text} \u2014 ${g.reason}`
+            )
+          );
         }
+        card.append(box);
       }
     }
     return card;
@@ -951,7 +1073,7 @@ async function mountTab(plugin, view, ctx) {
     const banner = resumeBanner();
     if (banner) out.push(banner);
     if (state.busy) out.push(el("div", NOTE, state.busy));
-    out.push(verdictStrip(), actionsRow());
+    out.push(toolbar(), impactPanel());
     if (state.invalid) {
       out.push(el("div", NOTE + "color: var(--color-danger);", "evals/evals.json exists but couldn't be parsed \u2014 regenerate or fix it by hand."));
     }
@@ -1035,9 +1157,10 @@ async function mountMain(plugin, view) {
     state.refreshing = true;
     state.status = state.rows.length ? "" : "Loading library\u2026";
     rerender();
-    const [local, shared, provider, assets] = await Promise.all([
+    const [local, shared, verdicts, provider, assets] = await Promise.all([
       plugin.loadLocal(),
       plugin.loadShared(),
+      plugin.latestVerdicts(),
       sx.llm.provider().catch(() => ""),
       sx.assets.list().catch(() => [])
     ]);
@@ -1056,7 +1179,7 @@ async function mountMain(plugin, view) {
         state.status = `Reading skills\u2026 ${done}/${skills.length}`;
         rerender();
       }
-      const row = shared.skills[summary.name] || null;
+      const row = verdicts[summary.name] || null;
       const hasEvals = facts.activeCount > 0;
       const dismissed = !!state.dismissed[summary.name];
       const events30 = usage[summary.name] || 0;
@@ -1512,10 +1635,24 @@ var SkillEvals = class {
     local.detail[skillName] = { at, cells };
     local.inProgress = null;
     await saveLocal(sx, local);
-    const names = (await sx.assets.list().catch(() => [])).map((a) => a.name);
-    await mergeSaveShared(sx, names, (doc) => {
-      doc.skills[skillName] = sharedRow;
-    }).catch(() => sx.ui.notice("Benchmark saved locally; sharing the summary row failed."));
+    const record = toInterchange({
+      agg: summary.agg,
+      perEval: summary.perEval,
+      provider,
+      model: lastModel,
+      reps,
+      skillHash: hash,
+      by,
+      at
+    });
+    try {
+      await sx.benchmarks.add(skillName, record);
+    } catch {
+      const names = (await sx.assets.list().catch(() => [])).map((a) => a.name);
+      await mergeSaveShared(sx, names, (doc) => {
+        doc.skills[skillName] = sharedRow;
+      }).catch(() => sx.ui.notice("Benchmark saved locally; sharing the results failed."));
+    }
     sx.ui.notice(
       `Benchmark done: with ${Math.round(summary.agg.with.passMean * 100)}% vs baseline ${Math.round(
         summary.agg.without.passMean * 100
@@ -1535,6 +1672,33 @@ var SkillEvals = class {
   }
   mergeSaveShared(names, mutate) {
     return mergeSaveShared(this.sx, names, mutate);
+  }
+  /** Latest verdict row per skill from the unified store, falling back
+   * to legacy sharedStorage rows when the backend predates it. */
+  async latestVerdicts() {
+    try {
+      const latest = await this.sx.benchmarks.latest();
+      const rows = {};
+      for (const [name, record] of Object.entries(latest || {})) {
+        const row = fromInterchange(record);
+        if (row) rows[name] = row;
+      }
+      return rows;
+    } catch {
+      const shared = await loadShared(this.sx);
+      return shared.skills || {};
+    }
+  }
+  /** A skill's benchmark history as normalized rows, newest first. */
+  async benchmarkHistory(skillName) {
+    try {
+      const records = await this.sx.benchmarks.list(skillName);
+      return records.map(fromInterchange).filter(Boolean);
+    } catch {
+      const shared = await loadShared(this.sx);
+      const row = shared.skills?.[skillName];
+      return row ? [row] : [];
+    }
   }
 };
 export {

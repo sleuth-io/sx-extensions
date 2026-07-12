@@ -9,6 +9,7 @@
 import { findEvalsFile, parseEvals, activeEvals, skillHash } from "./evals.js";
 import { loadLocal, saveLocal, loadShared, mergeSaveShared, FACTS_TTL_MS } from "./store.js";
 import { runBenchmark, buildSummary, estimateCalls, isCliProvider } from "./benchmark.js";
+import { toInterchange, fromInterchange } from "./health.js";
 import { mountTab } from "./ui-tab.js";
 import { mountMain } from "./ui-main.js";
 
@@ -220,10 +221,28 @@ export default class SkillEvals {
     local.inProgress = null;
     await saveLocal(sx, local);
 
-    const names = (await sx.assets.list().catch(() => [])).map((a) => a.name);
-    await mergeSaveShared(sx, names, (doc) => {
-      doc.skills[skillName] = sharedRow;
-    }).catch(() => sx.ui.notice("Benchmark saved locally; sharing the summary row failed."));
+    // The unified benchmark store is the system of record (files on
+    // path/git vaults, real benchmark rows on skills.new). The legacy
+    // sharedStorage verdict row is only the fallback when the vault
+    // backend predates benchmark storage.
+    const record = toInterchange({
+      agg: summary.agg,
+      perEval: summary.perEval,
+      provider,
+      model: lastModel,
+      reps,
+      skillHash: hash,
+      by,
+      at,
+    });
+    try {
+      await sx.benchmarks.add(skillName, record);
+    } catch {
+      const names = (await sx.assets.list().catch(() => [])).map((a) => a.name);
+      await mergeSaveShared(sx, names, (doc) => {
+        doc.skills[skillName] = sharedRow;
+      }).catch(() => sx.ui.notice("Benchmark saved locally; sharing the results failed."));
+    }
 
     sx.ui.notice(
       `Benchmark done: with ${Math.round(summary.agg.with.passMean * 100)}% vs baseline ${Math.round(
@@ -246,5 +265,34 @@ export default class SkillEvals {
   }
   mergeSaveShared(names, mutate) {
     return mergeSaveShared(this.sx, names, mutate);
+  }
+
+  /** Latest verdict row per skill from the unified store, falling back
+   * to legacy sharedStorage rows when the backend predates it. */
+  async latestVerdicts() {
+    try {
+      const latest = await this.sx.benchmarks.latest();
+      const rows = {};
+      for (const [name, record] of Object.entries(latest || {})) {
+        const row = fromInterchange(record);
+        if (row) rows[name] = row;
+      }
+      return rows;
+    } catch {
+      const shared = await loadShared(this.sx);
+      return shared.skills || {};
+    }
+  }
+
+  /** A skill's benchmark history as normalized rows, newest first. */
+  async benchmarkHistory(skillName) {
+    try {
+      const records = await this.sx.benchmarks.list(skillName);
+      return records.map(fromInterchange).filter(Boolean);
+    } catch {
+      const shared = await loadShared(this.sx);
+      const row = shared.skills?.[skillName];
+      return row ? [row] : [];
+    }
   }
 }

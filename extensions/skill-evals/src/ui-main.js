@@ -89,9 +89,10 @@ export async function mountMain(plugin, view) {
     // first-ever load shows the blocking status line.
     state.status = state.rows.length ? "" : "Loading library…";
     rerender();
-    const [local, shared, provider, assets] = await Promise.all([
+    const [local, shared, verdicts, provider, assets] = await Promise.all([
       plugin.loadLocal(),
       plugin.loadShared(),
+      plugin.latestVerdicts(),
       sx.llm.provider().catch(() => ""),
       sx.assets.list().catch(() => []),
     ]);
@@ -113,7 +114,7 @@ export async function mountMain(plugin, view) {
         state.status = `Reading skills… ${done}/${skills.length}`;
         rerender();
       }
-      const row = shared.skills[summary.name] || null;
+      const row = verdicts[summary.name] || null;
       const hasEvals = facts.activeCount > 0;
       const dismissed = !!state.dismissed[summary.name];
       const events30 = usage[summary.name] || 0;

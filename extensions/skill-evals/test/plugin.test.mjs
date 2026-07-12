@@ -171,6 +171,64 @@ test("resumeBenchmark discards the run when the skill changed underneath it", as
   assert.match(sx.state.notices.at(-1), /changed since/);
 });
 
+test("benchmark results go to the unified store when available", async () => {
+  const sx = stubSx();
+  const added = [];
+  sx.benchmarks = {
+    add: async (asset, record) => added.push({ asset, record }),
+    list: async () => [],
+    latest: async () => ({}),
+  };
+  const plugin = new SkillEvals();
+  plugin.onload(sx);
+  await plugin.startBenchmark("my-skill", 1);
+
+  assert.equal(added.length, 1);
+  assert.equal(added[0].asset, "my-skill");
+  const record = added[0].record;
+  assert.equal(record.source, "app");
+  assert.equal(record.executor.provider, "anthropic");
+  assert.equal(record.executor.model, "answer-model");
+  assert.equal(record.summary.with_skill.pass_rate.mean, 1);
+  assert.equal(record.summary.delta.pass_rate, 1);
+  assert.match(record.skill_hash, /^[0-9a-f]{8}$/);
+  // No legacy shared row when the unified store took the write.
+  assert.deepEqual(sx.state.shared.skills, {});
+});
+
+test("latestVerdicts prefers the unified store and falls back to shared rows", async () => {
+  const sx = stubSx();
+  const plugin = new SkillEvals();
+  plugin.onload(sx);
+
+  // No sx.benchmarks (old app) → legacy shared rows.
+  sx.state.shared.skills = { "my-skill": { s: "H", wp: 0.9, bp: 0.4, d: 0.5 } };
+  const legacy = await plugin.latestVerdicts();
+  assert.equal(legacy["my-skill"].wp, 0.9);
+
+  sx.benchmarks = {
+    latest: async () => ({
+      "my-skill": {
+        at: "2026-07-12T18:00:00Z",
+        source: "server",
+        executor: { provider: "server", model: "m" },
+        runs_per_config: 1,
+        summary: {
+          with_skill: { pass_rate: { mean: 0.83 } },
+          without_skill: { pass_rate: { mean: 0.42 } },
+          delta: { pass_rate: 0.41 },
+        },
+        is_current_version: true,
+      },
+    }),
+    list: async () => [],
+    add: async () => {},
+  };
+  const unified = await plugin.latestVerdicts();
+  assert.equal(unified["my-skill"].src, "server");
+  assert.equal(unified["my-skill"].wp, 0.83);
+});
+
 test("skillFacts caches by updatedAt, expires on TTL, and honors force", async () => {
   const sx = stubSx();
   let reads = 0;

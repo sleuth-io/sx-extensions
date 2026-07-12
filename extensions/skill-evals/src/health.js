@@ -68,7 +68,79 @@ export function annotate(w, wo, delta) {
   return "";
 }
 
-/** Status codes stored in the shared row. */
+// ---- Interchange records (docs/benchmarks-spec.md in sx) ----
+// The unified benchmark shape shared with skills.new: pulse's
+// run_summary as the aggregate, plus per_eval and staleness carriers.
+
+/** Build an interchange record from this extension's aggregate. */
+export function toInterchange({ agg, perEval, provider, model, reps, skillHash, by, at }) {
+  const stats = (side) => ({
+    pass_rate: { mean: side.passMean, stddev: side.passStddev },
+    time_seconds: { mean: round2((side.durMs || 0) / 1000) },
+    tokens: { mean: side.tokens || 0 },
+  });
+  return {
+    at: new Date(at).toISOString(),
+    source: "app",
+    executor: { provider, model: model || "" },
+    runs_per_config: reps,
+    by: by || "",
+    summary: {
+      with_skill: stats(agg.with),
+      without_skill: stats(agg.without),
+      delta: {
+        pass_rate: agg.delta,
+        time_seconds: round2(((agg.with.durMs || 0) - (agg.without.durMs || 0)) / 1000),
+        tokens: (agg.with.tokens || 0) - (agg.without.tokens || 0),
+      },
+    },
+    per_eval: perEval.map((p) => ({
+      eval_key: p.key,
+      with_pass: p.withPass,
+      without_pass: p.withoutPass,
+      status: p.status,
+    })),
+    notes: agg.annotation ? [agg.annotation] : [],
+    skill_hash: skillHash,
+  };
+}
+
+/** Normalize an interchange record (app- or server-run) into the row
+ * shape the dashboard and tab consume — the same shape legacy
+ * sharedStorage verdict rows used, so both sources feed one pipeline. */
+export function fromInterchange(record) {
+  if (!record || typeof record !== "object" || !record.summary) return null;
+  const rate = (side) => record.summary?.[side]?.pass_rate?.mean;
+  const wp = round2(Number(rate("with_skill") ?? 0));
+  const bp = round2(Number(rate("without_skill") ?? 0));
+  const d = round2(Number(record.summary?.delta?.pass_rate ?? wp - bp));
+  const atMs = Date.parse(record.at || "") || 0;
+  return {
+    s: statusCode(wp, bp, d),
+    wp,
+    bp,
+    d,
+    at: Math.round(atMs / 1000),
+    sh: record.skill_hash || null,
+    icv: record.is_current_version ?? null,
+    pm: record.executor?.provider || "",
+    model: record.executor?.model || "",
+    by: record.by || "",
+    src: record.source === "server" ? "server" : "app",
+    reps: record.runs_per_config || 1,
+    perEval: Array.isArray(record.per_eval)
+      ? record.per_eval.map((p) => ({
+          key: p.eval_key,
+          withPass: Number(p.with_pass ?? 0),
+          withoutPass: Number(p.without_pass ?? 0),
+          status: p.status || classifyEval(Number(p.with_pass ?? 0), Number(p.without_pass ?? 0)),
+        }))
+      : null,
+    notes: Array.isArray(record.notes) ? record.notes : [],
+  };
+}
+
+/** Status codes stored in verdict rows. */
 export function statusCode(withPass, withoutPass, delta) {
   if (withPass < PASS_BAR) return "F"; // failing even with the skill
   if (withoutPass >= PASS_BAR && delta <= DELTA_NONE) return "R"; // retire candidate
@@ -81,11 +153,21 @@ export function statusCode(withPass, withoutPass, delta) {
 export function skillStatus({ hasEvals, row, currentHash, provider }) {
   if (!hasEvals) return "no-evals";
   if (!row) return "not-benchmarked";
-  if (row.sh !== currentHash || (provider && row.pm && row.pm !== provider)) return "stale";
+  if (rowIsStale(row, currentHash, provider)) return "stale";
   if (row.s === "F") return "failing";
   if (row.s === "R") return "retire-candidate";
   if (row.s === "M") return "marginal";
   return "healthy";
+}
+
+/** App rows carry the content hash they ran against; server rows carry
+ * the server-computed is_current_version flag instead. Server rows are
+ * provider-agnostic — skills.new picked its own executor, so a local
+ * provider change says nothing about them. */
+export function rowIsStale(row, currentHash, provider) {
+  if (row.icv === false) return true;
+  if (row.sh && row.sh !== currentHash) return true;
+  return !!(row.src !== "server" && provider && row.pm && row.pm !== provider);
 }
 
 /** The attention queue: what deserves a look right now. Structural need
@@ -111,11 +193,11 @@ export function attentionScore({
     score += 30;
     reasons.push("never benchmarked");
   } else {
-    if (row.sh !== currentHash) {
+    if (row.icv === false || (row.sh && row.sh !== currentHash)) {
       score += 22;
       reasons.push("benchmark stale");
     }
-    if (provider && row.pm && row.pm !== provider) {
+    if (row.src !== "server" && provider && row.pm && row.pm !== provider) {
       score += 12;
       reasons.push(`benchmarked on ${row.pm}`);
     }
