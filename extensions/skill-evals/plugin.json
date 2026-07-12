@@ -2,7 +2,7 @@
   "id": "skill-evals",
   "name": "Skill Evals",
   "version": "1.0.0",
-  "minAppVersion": "2.3.0",
+  "minAppVersion": "2.2.3",
   "description": "Generate evals for skills, benchmark them with-vs-without the skill using your AI provider, and see which skills actually earn their keep — including retire candidates the baseline already passes.",
   "author": "sx",
   "permissions": [
