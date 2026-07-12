@@ -38,7 +38,7 @@ rebuilt for a team AI-asset library.
 The **Team** and **Repo** extensions need the sx app's `views:team` /
 `views:repo` slots (SxAPI 1.7.0). The **Collection** trio needs
 `views:collection` (1.6.0). **Skill Evals** needs `llm:use` and
-`views:asset-tab` (1.9.0, app 2.2.0+).
+`views:asset-tab`, and `benchmarks` (SxAPI 1.10.0, app 2.2.3+).
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
