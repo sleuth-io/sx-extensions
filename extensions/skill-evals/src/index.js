@@ -7,7 +7,7 @@
 // in-progress state persists to sx.storage so an app restart can resume.
 
 import { findEvalsFile, parseEvals, activeEvals, skillHash } from "./evals.js";
-import { loadLocal, saveLocal, loadShared, mergeSaveShared } from "./store.js";
+import { loadLocal, saveLocal, loadShared, mergeSaveShared, FACTS_TTL_MS } from "./store.js";
 import { runBenchmark, buildSummary, estimateCalls, isCliProvider } from "./benchmark.js";
 import { mountTab } from "./ui-tab.js";
 import { mountMain } from "./ui-main.js";
@@ -19,7 +19,7 @@ export default class SkillEvals {
     this.rerenders = new Set();
     sx.registerMainView({
       id: "skill-evals",
-      title: "Skill health",
+      title: "Skill Evals",
       section: "tools",
       mount: (view) => void mountMain(this, view),
     });
@@ -30,7 +30,7 @@ export default class SkillEvals {
     });
     sx.registerCommand({
       id: "open-health",
-      title: "Skill evals: open skill health",
+      title: "Skill Evals: open dashboard",
       run: () => sx.ui.openView("skill-evals"),
     });
     // Content may have changed — force a re-hash on next look.
@@ -49,17 +49,24 @@ export default class SkillEvals {
     }
   }
 
-  /** Cached per-skill facts: content hash + eval counts, re-read only
-   * when the asset's updatedAt moved. Callers pass the local doc and
-   * save it after their batch. */
-  async skillFacts(local, summary) {
+  /** Cached per-skill facts: content hash + eval counts. Re-read when the
+   * asset's updatedAt moved, when the entry ages past the TTL (evals can
+   * change server-side without a version bump), or when forced by the
+   * Refresh button. Callers pass the local doc and save it after their
+   * batch. */
+  async skillFacts(local, summary, force = false) {
     const cached = local.hashes[summary.name];
-    if (cached && cached.updatedAt === (summary.updatedAt || "")) return cached;
+    const fresh =
+      cached &&
+      cached.updatedAt === (summary.updatedAt || "") &&
+      Date.now() - (cached.checkedAt || 0) < FACTS_TTL_MS;
+    if (fresh && !force) return cached;
     const files = await this.sx.assets.readFiles(summary.name);
     const evalsFile = findEvalsFile(files);
     const evals = evalsFile ? parseEvals(evalsFile.content).evals : [];
     const facts = {
       updatedAt: summary.updatedAt || "",
+      checkedAt: Date.now(),
       hash: await skillHash(files),
       evalCount: evals.length,
       activeCount: activeEvals(evals).length,

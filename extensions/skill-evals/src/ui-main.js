@@ -40,6 +40,7 @@ export async function mountMain(plugin, view) {
   const state = {
     disposed: false,
     status: "Loading library…",
+    refreshing: false,
     provider: "",
     rows: [],
     dismissed: {},
@@ -70,8 +71,12 @@ export async function mountMain(plugin, view) {
     window.clearInterval(providerWatch);
   });
 
-  async function collect() {
-    state.status = "Loading library…";
+  async function collect(force = false) {
+    if (state.refreshing) return;
+    state.refreshing = true;
+    // With a cached board on screen, refresh quietly behind it; only a
+    // first-ever load shows the blocking status line.
+    state.status = state.rows.length ? "" : "Loading library…";
     rerender();
     const [local, shared, provider, assets] = await Promise.all([
       plugin.loadLocal(),
@@ -90,10 +95,10 @@ export async function mountMain(plugin, view) {
     await pool(skills, 8, async (summary) => {
       if (state.disposed) return;
       const facts = await plugin
-        .skillFacts(local, summary)
+        .skillFacts(local, summary, force)
         .catch(() => ({ hash: "", evalCount: 0, activeCount: 0 }));
       done++;
-      if (done % 10 === 0) {
+      if (done % 10 === 0 && !state.rows.length) {
         state.status = `Reading skills… ${done}/${skills.length}`;
         rerender();
       }
@@ -153,7 +158,13 @@ export async function mountMain(plugin, view) {
 
     state.rows = rows;
     state.status = "";
+    state.refreshing = false;
     state.collectedAt = Date.now();
+    // Persist the computed board so the next mount renders instantly
+    // instead of re-reading the library from scratch.
+    const snapshot = await plugin.loadLocal();
+    snapshot.board = { rows, dismissed: state.dismissed, provider: state.provider, collectedAt: state.collectedAt };
+    await saveLocal(sx, snapshot);
     rerender();
   }
 
@@ -195,12 +206,17 @@ export async function mountMain(plugin, view) {
         `${benched} benchmarked · ${retire} retire candidate${retire === 1 ? "" : "s"} · ${failing} failing`
       : "No skills in this library yet.";
     title.append(
-      el("div", "font-weight: 600; font-size: 14px;", "Skill health"),
+      el("div", "font-weight: 600; font-size: 14px;", "Skill Evals"),
       el("div", FAINT + "font-size: 12px;", rollup),
     );
     const spacer = el("div", "flex: 1;");
+    if (state.refreshing && state.rows.length) {
+      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing…"));
+      return wrap;
+    }
     const refresh = el("button", BUTTON, "Refresh");
-    refresh.onclick = () => void collect();
+    refresh.title = "Re-read every skill's files (evals can change without a version bump)";
+    refresh.onclick = () => void collect(true);
     wrap.append(title, spacer, refresh);
     return wrap;
   }
@@ -375,5 +391,18 @@ export async function mountMain(plugin, view) {
   }
 
   rerender();
+  // Cached-first: the last computed board renders immediately (no blank
+  // "loading" screen on remount); a background pass then refreshes it —
+  // reading files only for skills whose updatedAt moved or whose facts
+  // aged past the TTL, and pulling usage incrementally.
+  const cachedBoard = (await plugin.loadLocal()).board;
+  if (cachedBoard?.rows?.length && !state.disposed) {
+    state.rows = cachedBoard.rows;
+    state.dismissed = cachedBoard.dismissed || {};
+    state.provider = cachedBoard.provider || "";
+    state.collectedAt = cachedBoard.collectedAt || 0;
+    state.status = "";
+    rerender();
+  }
   await collect();
 }

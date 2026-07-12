@@ -171,6 +171,42 @@ test("resumeBenchmark discards the run when the skill changed underneath it", as
   assert.match(sx.state.notices.at(-1), /changed since/);
 });
 
+test("skillFacts caches by updatedAt, expires on TTL, and honors force", async () => {
+  const sx = stubSx();
+  let reads = 0;
+  const baseRead = sx.assets.readFiles;
+  sx.assets.readFiles = async (...args) => {
+    reads++;
+    return baseRead(...args);
+  };
+  const plugin = new SkillEvals();
+  plugin.onload(sx);
+  const local = { v: 1, usage: {}, hashes: {}, runs: {}, detail: {}, inProgress: null, board: null };
+  const summary = { name: "my-skill", type: "skill", updatedAt: "2026-07-01" };
+
+  const first = await plugin.skillFacts(local, summary);
+  assert.equal(reads, 1);
+  assert.equal(first.activeCount, 2);
+  assert.ok(first.checkedAt > 0);
+
+  // Fresh cache: no re-read.
+  await plugin.skillFacts(local, summary);
+  assert.equal(reads, 1);
+
+  // updatedAt moved: re-read.
+  await plugin.skillFacts(local, { ...summary, updatedAt: "2026-07-02" });
+  assert.equal(reads, 2);
+
+  // TTL expiry: evals can change server-side without a version bump.
+  local.hashes["my-skill"].checkedAt = Date.now() - 25 * 60 * 60 * 1000;
+  await plugin.skillFacts(local, { ...summary, updatedAt: "2026-07-02" });
+  assert.equal(reads, 3);
+
+  // Force: the Refresh button's hard path.
+  await plugin.skillFacts(local, { ...summary, updatedAt: "2026-07-02" }, true);
+  assert.equal(reads, 4);
+});
+
 test("asset-published drops the cached hash so facts re-read", async () => {
   const sx = stubSx();
   const plugin = new SkillEvals();

@@ -69,8 +69,9 @@ var KEEP_SUMMARIES = 3;
 var KEEP_DETAILS = 8;
 var SHARED_BUDGET = 240 * 1024;
 var USAGE_DAYS = 30;
+var FACTS_TTL_MS = 24 * 60 * 60 * 1e3;
 var MAX_USAGE_ROWS = 3e4;
-var EMPTY = { v: 1, usage: {}, hashes: {}, runs: {}, detail: {}, inProgress: null };
+var EMPTY = { v: 1, usage: {}, hashes: {}, runs: {}, detail: {}, inProgress: null, board: null };
 async function loadLocal(sx) {
   const doc = await sx.storage.loadData().catch(() => null);
   return doc && doc.v === 1 ? { ...EMPTY, ...doc } : { ...EMPTY };
@@ -960,6 +961,7 @@ async function mountMain(plugin, view) {
   const state = {
     disposed: false,
     status: "Loading library\u2026",
+    refreshing: false,
     provider: "",
     rows: [],
     dismissed: {},
@@ -986,8 +988,10 @@ async function mountMain(plugin, view) {
     plugin.rerenders.delete(rerender);
     window.clearInterval(providerWatch);
   });
-  async function collect() {
-    state.status = "Loading library\u2026";
+  async function collect(force = false) {
+    if (state.refreshing) return;
+    state.refreshing = true;
+    state.status = state.rows.length ? "" : "Loading library\u2026";
     rerender();
     const [local, shared, provider, assets] = await Promise.all([
       plugin.loadLocal(),
@@ -1004,9 +1008,9 @@ async function mountMain(plugin, view) {
     const rows = [];
     await pool(skills, 8, async (summary) => {
       if (state.disposed) return;
-      const facts = await plugin.skillFacts(local, summary).catch(() => ({ hash: "", evalCount: 0, activeCount: 0 }));
+      const facts = await plugin.skillFacts(local, summary, force).catch(() => ({ hash: "", evalCount: 0, activeCount: 0 }));
       done++;
-      if (done % 10 === 0) {
+      if (done % 10 === 0 && !state.rows.length) {
         state.status = `Reading skills\u2026 ${done}/${skills.length}`;
         rerender();
       }
@@ -1062,7 +1066,11 @@ async function mountMain(plugin, view) {
     });
     state.rows = rows;
     state.status = "";
+    state.refreshing = false;
     state.collectedAt = Date.now();
+    const snapshot = await plugin.loadLocal();
+    snapshot.board = { rows, dismissed: state.dismissed, provider: state.provider, collectedAt: state.collectedAt };
+    await saveLocal(sx, snapshot);
     rerender();
   }
   async function markDeprecated(name) {
@@ -1098,12 +1106,17 @@ async function mountMain(plugin, view) {
     const failing = state.rows.filter((r) => r.status === "failing").length;
     const rollup = skills ? `${skills} skills \xB7 ${withEvals} with evals (${Math.round(withEvals / skills * 100)}%) \xB7 ${benched} benchmarked \xB7 ${retire} retire candidate${retire === 1 ? "" : "s"} \xB7 ${failing} failing` : "No skills in this library yet.";
     title.append(
-      el("div", "font-weight: 600; font-size: 14px;", "Skill health"),
+      el("div", "font-weight: 600; font-size: 14px;", "Skill Evals"),
       el("div", FAINT + "font-size: 12px;", rollup)
     );
     const spacer = el("div", "flex: 1;");
+    if (state.refreshing && state.rows.length) {
+      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing\u2026"));
+      return wrap;
+    }
     const refresh = el("button", BUTTON, "Refresh");
-    refresh.onclick = () => void collect();
+    refresh.title = "Re-read every skill's files (evals can change without a version bump)";
+    refresh.onclick = () => void collect(true);
     wrap.append(title, spacer, refresh);
     return wrap;
   }
@@ -1253,6 +1266,15 @@ async function mountMain(plugin, view) {
     return out;
   }
   rerender();
+  const cachedBoard = (await plugin.loadLocal()).board;
+  if (cachedBoard?.rows?.length && !state.disposed) {
+    state.rows = cachedBoard.rows;
+    state.dismissed = cachedBoard.dismissed || {};
+    state.provider = cachedBoard.provider || "";
+    state.collectedAt = cachedBoard.collectedAt || 0;
+    state.status = "";
+    rerender();
+  }
   await collect();
 }
 
@@ -1264,7 +1286,7 @@ var SkillEvals = class {
     this.rerenders = /* @__PURE__ */ new Set();
     sx.registerMainView({
       id: "skill-evals",
-      title: "Skill health",
+      title: "Skill Evals",
       section: "tools",
       mount: (view) => void mountMain(this, view)
     });
@@ -1275,7 +1297,7 @@ var SkillEvals = class {
     });
     sx.registerCommand({
       id: "open-health",
-      title: "Skill evals: open skill health",
+      title: "Skill Evals: open dashboard",
       run: () => sx.ui.openView("skill-evals")
     });
     sx.on("asset-published", ({ name }) => this.dropHash(name));
@@ -1290,17 +1312,21 @@ var SkillEvals = class {
       await saveLocal(this.sx, local);
     }
   }
-  /** Cached per-skill facts: content hash + eval counts, re-read only
-   * when the asset's updatedAt moved. Callers pass the local doc and
-   * save it after their batch. */
-  async skillFacts(local, summary) {
+  /** Cached per-skill facts: content hash + eval counts. Re-read when the
+   * asset's updatedAt moved, when the entry ages past the TTL (evals can
+   * change server-side without a version bump), or when forced by the
+   * Refresh button. Callers pass the local doc and save it after their
+   * batch. */
+  async skillFacts(local, summary, force = false) {
     const cached = local.hashes[summary.name];
-    if (cached && cached.updatedAt === (summary.updatedAt || "")) return cached;
+    const fresh = cached && cached.updatedAt === (summary.updatedAt || "") && Date.now() - (cached.checkedAt || 0) < FACTS_TTL_MS;
+    if (fresh && !force) return cached;
     const files = await this.sx.assets.readFiles(summary.name);
     const evalsFile = findEvalsFile(files);
     const evals = evalsFile ? parseEvals(evalsFile.content).evals : [];
     const facts = {
       updatedAt: summary.updatedAt || "",
+      checkedAt: Date.now(),
       hash: await skillHash(files),
       evalCount: evals.length,
       activeCount: activeEvals(evals).length

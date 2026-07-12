@@ -7,9 +7,15 @@ export const KEEP_SUMMARIES = 3; // benchmark summaries retained per skill
 export const KEEP_DETAILS = 8; // skills with full run detail (LRU by run time)
 export const SHARED_BUDGET = 240 * 1024; // stay under the 256 KB hard cap
 export const USAGE_DAYS = 30;
+// Per-skill facts (content hash + eval counts) refresh when the asset's
+// updatedAt moves — but evals can change server-side without a version
+// bump, so entries also expire on a TTL as a safety net.
+export const FACTS_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_USAGE_ROWS = 30000;
 
-const EMPTY = { v: 1, usage: {}, hashes: {}, runs: {}, detail: {}, inProgress: null };
+// `board` is the last computed dashboard snapshot — rendered instantly on
+// mount while a background refresh recomputes it.
+const EMPTY = { v: 1, usage: {}, hashes: {}, runs: {}, detail: {}, inProgress: null, board: null };
 
 export async function loadLocal(sx) {
   const doc = await sx.storage.loadData().catch(() => null);
