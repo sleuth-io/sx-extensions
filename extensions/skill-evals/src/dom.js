@@ -24,6 +24,60 @@ export const NOTE =
   "border: 1px solid var(--color-line); border-radius: 8px; padding: 8px 10px;" +
   "background: var(--color-canvas); font-size: 12px; line-height: 1.5;";
 
+export const SMALL_BUTTON = BUTTON + "padding: 3px 8px; font-size: 11px; white-space: nowrap;";
+
+/** Uppercase faint section label — quieter hierarchy than bold headings. */
+export function sectionLabel(text) {
+  return el(
+    "div",
+    FAINT + "font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;",
+    text,
+  );
+}
+
+/** A "⋯" button revealing a small popup of secondary actions. The popup
+ * closes on any outside click; rerenders drop it wholesale, so nothing
+ * leaks past the row's lifetime. */
+export function menuButton(items) {
+  const wrap = el("div", "position: relative; margin-left: auto;");
+  const btn = el("button", SMALL_BUTTON + "line-height: 1;", "⋯");
+  btn.title = "More actions";
+  const menu = el(
+    "div",
+    "position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; display: none;" +
+      "min-width: 150px; padding: 4px; border: 1px solid var(--color-line); border-radius: 8px;" +
+      "background: var(--color-surface); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);" +
+      "flex-direction: column; gap: 2px;",
+  );
+  for (const item of items) {
+    const it = el(
+      "button",
+      "text-align: left; padding: 5px 8px; font: inherit; font-size: 12px; border: 0;" +
+        "border-radius: 6px; background: transparent; cursor: pointer;" +
+        (item.danger ? "color: var(--color-danger);" : "color: var(--color-ink);"),
+      item.label,
+    );
+    it.onmouseenter = () => (it.style.background = "var(--color-canvas)");
+    it.onmouseleave = () => (it.style.background = "transparent");
+    it.onclick = (e) => {
+      e.stopPropagation();
+      menu.style.display = "none";
+      item.run();
+    };
+    menu.append(it);
+  }
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const opening = menu.style.display === "none" || !menu.style.display;
+    menu.style.display = opening ? "flex" : "none";
+    if (opening) {
+      document.addEventListener("click", () => (menu.style.display = "none"), { once: true });
+    }
+  };
+  wrap.append(btn, menu);
+  return wrap;
+}
+
 export function chip(text, tone) {
   const colors = {
     danger: "border-color: var(--color-danger); color: var(--color-danger);",

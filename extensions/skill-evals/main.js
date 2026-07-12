@@ -489,6 +489,48 @@ var CARD = "border: 1px solid var(--color-line); border-radius: 12px; padding: 1
 var BUTTON = "padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 500;border: 1px solid var(--color-line); border-radius: 8px; cursor: pointer;background: var(--color-surface); color: var(--color-ink);";
 var PRIMARY = BUTTON + "background: var(--color-accent); border-color: var(--color-accent); color: white;";
 var NOTE = "border: 1px solid var(--color-line); border-radius: 8px; padding: 8px 10px;background: var(--color-canvas); font-size: 12px; line-height: 1.5;";
+var SMALL_BUTTON = BUTTON + "padding: 3px 8px; font-size: 11px; white-space: nowrap;";
+function sectionLabel(text) {
+  return el(
+    "div",
+    FAINT + "font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;",
+    text
+  );
+}
+function menuButton(items) {
+  const wrap = el("div", "position: relative; margin-left: auto;");
+  const btn = el("button", SMALL_BUTTON + "line-height: 1;", "\u22EF");
+  btn.title = "More actions";
+  const menu = el(
+    "div",
+    "position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; display: none;min-width: 150px; padding: 4px; border: 1px solid var(--color-line); border-radius: 8px;background: var(--color-surface); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);flex-direction: column; gap: 2px;"
+  );
+  for (const item of items) {
+    const it = el(
+      "button",
+      "text-align: left; padding: 5px 8px; font: inherit; font-size: 12px; border: 0;border-radius: 6px; background: transparent; cursor: pointer;" + (item.danger ? "color: var(--color-danger);" : "color: var(--color-ink);"),
+      item.label
+    );
+    it.onmouseenter = () => it.style.background = "var(--color-canvas)";
+    it.onmouseleave = () => it.style.background = "transparent";
+    it.onclick = (e) => {
+      e.stopPropagation();
+      menu.style.display = "none";
+      item.run();
+    };
+    menu.append(it);
+  }
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const opening = menu.style.display === "none" || !menu.style.display;
+    menu.style.display = opening ? "flex" : "none";
+    if (opening) {
+      document.addEventListener("click", () => menu.style.display = "none", { once: true });
+    }
+  };
+  wrap.append(btn, menu);
+  return wrap;
+}
 function chip(text, tone) {
   const colors = {
     danger: "border-color: var(--color-danger); color: var(--color-danger);",
@@ -1105,16 +1147,13 @@ async function mountMain(plugin, view) {
     const retire = state.rows.filter((r) => r.status === "retire-candidate" && !r.dismissed).length;
     const failing = state.rows.filter((r) => r.status === "failing").length;
     const rollup = skills ? `${skills} skills \xB7 ${withEvals} with evals (${Math.round(withEvals / skills * 100)}%) \xB7 ${benched} benchmarked \xB7 ${retire} retire candidate${retire === 1 ? "" : "s"} \xB7 ${failing} failing` : "No skills in this library yet.";
-    title.append(
-      el("div", "font-weight: 600; font-size: 14px;", "Skill Evals"),
-      el("div", FAINT + "font-size: 12px;", rollup)
-    );
+    title.append(el("div", SOFT + "font-size: 13px;", rollup));
     const spacer = el("div", "flex: 1;");
     if (state.refreshing && state.rows.length) {
       wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing\u2026"));
       return wrap;
     }
-    const refresh = el("button", BUTTON, "Refresh");
+    const refresh = el("button", SMALL_BUTTON, "Refresh");
     refresh.title = "Re-read every skill's files (evals can change without a version bump)";
     refresh.onclick = () => void collect(true);
     wrap.append(title, spacer, refresh);
@@ -1161,7 +1200,7 @@ async function mountMain(plugin, view) {
     for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
     const action = el(
       "button",
-      BUTTON + "margin-left: auto; padding: 3px 8px; font-size: 11px; white-space: nowrap;",
+      SMALL_BUTTON + "margin-left: auto;",
       r.facts.activeCount > 0 ? "Benchmark" : "Add evals"
     );
     action.onclick = () => {
@@ -1171,29 +1210,30 @@ async function mountMain(plugin, view) {
     row.append(action);
     return row;
   }
-  function retireCard(r) {
-    const card = el("div", CARD);
-    const head = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
+  function retireRow(r) {
+    const row = el(
+      "div",
+      "display: flex; flex-direction: column; gap: 3px; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px;background: var(--color-surface);"
+    );
+    const head = el("div", "display: flex; gap: 8px; align-items: center;");
     const nameLink = el(
       "a",
-      "font-weight: 600; font-size: 13px; cursor: pointer; color: var(--color-ink);",
+      "font-weight: 600; font-size: 12px; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
       r.name
     );
     nameLink.onclick = () => sx.ui.openAsset(r.name);
-    head.append(nameLink, chip("retire candidate", "danger"));
-    const evidence = `Baseline passes ${fmtPct(r.row.bp)} without it \xB7 delta ${r.row.d >= 0 ? "+" : ""}${r.row.d} \xB7 ${r.events30} uses/30d${r.everyone ? " \xB7 installed everywhere" : ""} \xB7 benchmarked by ${r.row.by || "a teammate"} ${fmtAgo(r.row.at * 1e3)} on ${r.row.pm}`;
-    const actions = el("div", "display: flex; gap: 8px; flex-wrap: wrap;");
-    const open = el("button", BUTTON, "Open skill");
-    open.onclick = () => sx.ui.openAsset(r.name);
-    const rebench = el("button", BUTTON, "Re-benchmark");
-    rebench.onclick = () => void plugin.startBenchmark(r.name, 1).then(collect);
-    const dep = el("button", BUTTON, "Mark deprecated\u2026");
-    dep.onclick = () => void markDeprecated(r.name);
-    const dis = el("button", BUTTON, "Dismiss");
-    dis.onclick = () => void dismiss(r.name, false);
-    actions.append(open, rebench, dep, dis);
-    card.append(head, el("div", SOFT + "font-size: 12px;", evidence), actions);
-    return card;
+    head.append(
+      nameLink,
+      chip("retire candidate", "danger"),
+      menuButton([
+        { label: "Re-benchmark", run: () => void plugin.startBenchmark(r.name, 1).then(collect) },
+        { label: "Mark deprecated\u2026", run: () => void markDeprecated(r.name) },
+        { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true }
+      ])
+    );
+    const evidence = `Baseline passes ${fmtPct(r.row.bp)} without it \xB7 \u0394 ${r.row.d >= 0 ? "+" : ""}${r.row.d} \xB7 ${r.events30} uses/30d${r.everyone ? " \xB7 installed everywhere" : ""} \xB7 by ${r.row.by || "a teammate"} ${fmtAgo(r.row.at * 1e3)} on ${r.row.pm}`;
+    row.append(head, el("div", FAINT + "font-size: 11px;", evidence));
+    return row;
   }
   function table() {
     const wrap = el("div", "display: flex; flex-direction: column; gap: 6px;");
@@ -1202,7 +1242,12 @@ async function mountMain(plugin, view) {
     for (const r of state.rows) counts[r.status] = (counts[r.status] || 0) + 1;
     for (const status of ["", ...STATUS_ORDER.filter((s) => counts[s])]) {
       const label = status ? `${STATUS_LABEL[status]} (${counts[status]})` : `All (${state.rows.length})`;
-      const b = el("button", state.filter === status ? PRIMARY : BUTTON, label);
+      const active = state.filter === status;
+      const b = el(
+        "button",
+        SMALL_BUTTON + "border-radius: 999px;" + (active ? "background: var(--color-accent); border-color: var(--color-accent); color: white;" : ""),
+        label
+      );
       b.onclick = () => {
         state.filter = status;
         rerender();
@@ -1220,16 +1265,15 @@ async function mountMain(plugin, view) {
       );
       line.onclick = () => sx.ui.openAsset(r.name);
       const tone = r.status === "healthy" ? "accent" : r.status === "retire-candidate" || r.status === "failing" ? "danger" : "faint";
+      const detail = r.row ? `with ${fmtPct(r.row.wp)} \xB7 baseline ${fmtPct(r.row.bp)} \xB7 \u0394 ${r.row.d >= 0 ? "+" : ""}${r.row.d}` : r.facts.activeCount > 0 ? `${r.facts.activeCount} active eval${r.facts.activeCount === 1 ? "" : "s"}` : "";
       line.append(
         el("span", "font-weight: 600; min-width: 160px;", r.name),
-        chip(STATUS_LABEL[r.status] + (r.dismissed ? " \xB7 dismissed" : ""), tone),
-        el(
-          "span",
-          SOFT,
-          r.row ? `with ${fmtPct(r.row.wp)} \xB7 baseline ${fmtPct(r.row.bp)} \xB7 \u0394 ${r.row.d >= 0 ? "+" : ""}${r.row.d}` : `${r.facts.activeCount} active evals`
-        ),
-        el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`)
+        chip(STATUS_LABEL[r.status] + (r.dismissed ? " \xB7 dismissed" : ""), tone)
       );
+      if (detail) line.append(el("span", SOFT, detail));
+      if (r.events30 > 0) {
+        line.append(el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`));
+      }
       wrap.append(line);
     }
     return wrap;
@@ -1247,24 +1291,21 @@ async function mountMain(plugin, view) {
     if (!state.rows.length) return out;
     const queue = state.rows.filter((r) => r.score >= 10).sort((a, b) => b.score - a.score).slice(0, 5);
     if (queue.length) {
-      out.push(el("div", "font-weight: 600; font-size: 13px;", "Up next"));
+      out.push(sectionLabel("Up next"));
       const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
       list.append(...queue.map(queueRow));
       out.push(list);
     }
     const retire = state.rows.filter((r) => r.status === "retire-candidate" && !r.dismissed).sort((a, b) => retireRank(b.row, b.events30) - retireRank(a.row, a.events30));
     if (retire.length) {
-      out.push(
-        el("div", "font-weight: 600; font-size: 13px;", `Retire candidates (${retire.length})`),
-        el(
-          "div",
-          FAINT + "font-size: 12px;",
-          "The baseline model already passes these skills' own evals \u2014 they may not be earning their keep."
-        )
-      );
-      out.push(...retire.map(retireCard));
+      const label = sectionLabel(`Retire candidates (${retire.length})`);
+      label.title = "The baseline model already passes these skills' own evals \u2014 they may not be earning their keep.";
+      out.push(label);
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...retire.map(retireRow));
+      out.push(list);
     }
-    out.push(el("div", "font-weight: 600; font-size: 13px; margin-top: 4px;", "All skills"), table());
+    out.push(sectionLabel("All skills"), table());
     return out;
   }
   rerender();

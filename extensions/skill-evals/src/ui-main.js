@@ -4,7 +4,18 @@
 // verdict rows, the cached usage window, and per-skill facts re-read
 // only when an asset's updatedAt moved.
 
-import { el, chip, fmtPct, fmtAgo, FAINT, SOFT, CARD, BUTTON, PRIMARY, NOTE } from "./dom.js";
+import {
+  el,
+  chip,
+  fmtPct,
+  fmtAgo,
+  menuButton,
+  sectionLabel,
+  FAINT,
+  SOFT,
+  SMALL_BUTTON,
+  NOTE,
+} from "./dom.js";
 import { loadUsage, usageBySkill, saveLocal } from "./store.js";
 import { skillStatus, attentionScore, retireRank } from "./health.js";
 
@@ -205,16 +216,14 @@ export async function mountMain(plugin, view) {
       ? `${skills} skills · ${withEvals} with evals (${Math.round((withEvals / skills) * 100)}%) · ` +
         `${benched} benchmarked · ${retire} retire candidate${retire === 1 ? "" : "s"} · ${failing} failing`
       : "No skills in this library yet.";
-    title.append(
-      el("div", "font-weight: 600; font-size: 14px;", "Skill Evals"),
-      el("div", FAINT + "font-size: 12px;", rollup),
-    );
+    // The app chrome already titles this view — one rollup line is enough.
+    title.append(el("div", SOFT + "font-size: 13px;", rollup));
     const spacer = el("div", "flex: 1;");
     if (state.refreshing && state.rows.length) {
       wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing…"));
       return wrap;
     }
-    const refresh = el("button", BUTTON, "Refresh");
+    const refresh = el("button", SMALL_BUTTON, "Refresh");
     refresh.title = "Re-read every skill's files (evals can change without a version bump)";
     refresh.onclick = () => void collect(true);
     wrap.append(title, spacer, refresh);
@@ -266,7 +275,7 @@ export async function mountMain(plugin, view) {
     for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
     const action = el(
       "button",
-      BUTTON + "margin-left: auto; padding: 3px 8px; font-size: 11px; white-space: nowrap;",
+      SMALL_BUTTON + "margin-left: auto;",
       r.facts.activeCount > 0 ? "Benchmark" : "Add evals",
     );
     action.onclick = () => {
@@ -277,32 +286,35 @@ export async function mountMain(plugin, view) {
     return row;
   }
 
-  function retireCard(r) {
-    const card = el("div", CARD);
-    const head = el("div", "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
+  function retireRow(r) {
+    const row = el(
+      "div",
+      "display: flex; flex-direction: column; gap: 3px; padding: 6px 10px;" +
+        "border: 1px solid var(--color-line); border-radius: 8px;" +
+        "background: var(--color-surface);",
+    );
+    const head = el("div", "display: flex; gap: 8px; align-items: center;");
     const nameLink = el(
       "a",
-      "font-weight: 600; font-size: 13px; cursor: pointer; color: var(--color-ink);",
+      "font-weight: 600; font-size: 12px; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
       r.name,
     );
     nameLink.onclick = () => sx.ui.openAsset(r.name);
-    head.append(nameLink, chip("retire candidate", "danger"));
+    head.append(
+      nameLink,
+      chip("retire candidate", "danger"),
+      menuButton([
+        { label: "Re-benchmark", run: () => void plugin.startBenchmark(r.name, 1).then(collect) },
+        { label: "Mark deprecated…", run: () => void markDeprecated(r.name) },
+        { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true },
+      ]),
+    );
     const evidence =
-      `Baseline passes ${fmtPct(r.row.bp)} without it · delta ${r.row.d >= 0 ? "+" : ""}${r.row.d} · ` +
+      `Baseline passes ${fmtPct(r.row.bp)} without it · Δ ${r.row.d >= 0 ? "+" : ""}${r.row.d} · ` +
       `${r.events30} uses/30d${r.everyone ? " · installed everywhere" : ""} · ` +
-      `benchmarked by ${r.row.by || "a teammate"} ${fmtAgo(r.row.at * 1000)} on ${r.row.pm}`;
-    const actions = el("div", "display: flex; gap: 8px; flex-wrap: wrap;");
-    const open = el("button", BUTTON, "Open skill");
-    open.onclick = () => sx.ui.openAsset(r.name);
-    const rebench = el("button", BUTTON, "Re-benchmark");
-    rebench.onclick = () => void plugin.startBenchmark(r.name, 1).then(collect);
-    const dep = el("button", BUTTON, "Mark deprecated…");
-    dep.onclick = () => void markDeprecated(r.name);
-    const dis = el("button", BUTTON, "Dismiss");
-    dis.onclick = () => void dismiss(r.name, false);
-    actions.append(open, rebench, dep, dis);
-    card.append(head, el("div", SOFT + "font-size: 12px;", evidence), actions);
-    return card;
+      `by ${r.row.by || "a teammate"} ${fmtAgo(r.row.at * 1000)} on ${r.row.pm}`;
+    row.append(head, el("div", FAINT + "font-size: 11px;", evidence));
+    return row;
   }
 
   function table() {
@@ -312,7 +324,14 @@ export async function mountMain(plugin, view) {
     for (const r of state.rows) counts[r.status] = (counts[r.status] || 0) + 1;
     for (const status of ["", ...STATUS_ORDER.filter((s) => counts[s])]) {
       const label = status ? `${STATUS_LABEL[status]} (${counts[status]})` : `All (${state.rows.length})`;
-      const b = el("button", state.filter === status ? PRIMARY : BUTTON, label);
+      const active = state.filter === status;
+      const b = el(
+        "button",
+        SMALL_BUTTON +
+          "border-radius: 999px;" +
+          (active ? "background: var(--color-accent); border-color: var(--color-accent); color: white;" : ""),
+        label,
+      );
       b.onclick = () => {
         state.filter = status;
         rerender();
@@ -337,16 +356,21 @@ export async function mountMain(plugin, view) {
       line.onclick = () => sx.ui.openAsset(r.name);
       const tone =
         r.status === "healthy" ? "accent" : r.status === "retire-candidate" || r.status === "failing" ? "danger" : "faint";
+      // The status chip already says "no evals" — skip redundant detail
+      // text, and skip the usage figure entirely when it's zero.
+      const detail = r.row
+        ? `with ${fmtPct(r.row.wp)} · baseline ${fmtPct(r.row.bp)} · Δ ${r.row.d >= 0 ? "+" : ""}${r.row.d}`
+        : r.facts.activeCount > 0
+          ? `${r.facts.activeCount} active eval${r.facts.activeCount === 1 ? "" : "s"}`
+          : "";
       line.append(
         el("span", "font-weight: 600; min-width: 160px;", r.name),
         chip(STATUS_LABEL[r.status] + (r.dismissed ? " · dismissed" : ""), tone),
-        el(
-          "span",
-          SOFT,
-          r.row ? `with ${fmtPct(r.row.wp)} · baseline ${fmtPct(r.row.bp)} · Δ ${r.row.d >= 0 ? "+" : ""}${r.row.d}` : `${r.facts.activeCount} active evals`,
-        ),
-        el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`),
       );
+      if (detail) line.append(el("span", SOFT, detail));
+      if (r.events30 > 0) {
+        line.append(el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`));
+      }
       wrap.append(line);
     }
     return wrap;
@@ -369,7 +393,7 @@ export async function mountMain(plugin, view) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
     if (queue.length) {
-      out.push(el("div", "font-weight: 600; font-size: 13px;", "Up next"));
+      out.push(sectionLabel("Up next"));
       const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
       list.append(...queue.map(queueRow));
       out.push(list);
@@ -379,18 +403,15 @@ export async function mountMain(plugin, view) {
       .filter((r) => r.status === "retire-candidate" && !r.dismissed)
       .sort((a, b) => retireRank(b.row, b.events30) - retireRank(a.row, a.events30));
     if (retire.length) {
-      out.push(
-        el("div", "font-weight: 600; font-size: 13px;", `Retire candidates (${retire.length})`),
-        el(
-          "div",
-          FAINT + "font-size: 12px;",
-          "The baseline model already passes these skills' own evals — they may not be earning their keep.",
-        ),
-      );
-      out.push(...retire.map(retireCard));
+      const label = sectionLabel(`Retire candidates (${retire.length})`);
+      label.title = "The baseline model already passes these skills' own evals — they may not be earning their keep.";
+      out.push(label);
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...retire.map(retireRow));
+      out.push(list);
     }
 
-    out.push(el("div", "font-weight: 600; font-size: 13px; margin-top: 4px;", "All skills"), table());
+    out.push(sectionLabel("All skills"), table());
     return out;
   }
 
