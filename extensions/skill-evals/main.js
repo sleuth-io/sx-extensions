@@ -1146,28 +1146,30 @@ async function mountMain(plugin, view) {
       `Benchmarking ${r.skill}\u2026 ${r.done}/${r.total} cells. Progress and cancel live on the skill's Evals tab.`
     );
   }
-  function queueCard(r) {
-    const card = el("div", CARD + "min-width: 220px; flex: 1;");
+  function queueRow(r) {
+    const row = el(
+      "div",
+      "display: flex; gap: 8px; align-items: center; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface);"
+    );
     const nameLink = el(
       "a",
-      "font-weight: 600; font-size: 13px; cursor: pointer; color: var(--color-ink);",
+      "font-weight: 600; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
       r.name
     );
     nameLink.onclick = () => sx.ui.openAsset(r.name);
-    const chips = el("div", "display: flex; gap: 4px; flex-wrap: wrap;");
-    for (const reason of r.reasons.slice(0, 3)) chips.append(chip(reason, "faint"));
-    card.append(nameLink, chips);
+    row.append(nameLink);
+    for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
     const action = el(
       "button",
-      PRIMARY,
-      r.facts.activeCount > 0 ? "Run benchmark" : "Open Evals tab"
+      BUTTON + "margin-left: auto; padding: 3px 8px; font-size: 11px; white-space: nowrap;",
+      r.facts.activeCount > 0 ? "Benchmark" : "Add evals"
     );
     action.onclick = () => {
       if (r.facts.activeCount > 0) void plugin.startBenchmark(r.name, 1).then(collect);
       else sx.ui.openAsset(r.name);
     };
-    card.append(action);
-    return card;
+    row.append(action);
+    return row;
   }
   function retireCard(r) {
     const card = el("div", CARD);
@@ -1246,9 +1248,9 @@ async function mountMain(plugin, view) {
     const queue = state.rows.filter((r) => r.score >= 10).sort((a, b) => b.score - a.score).slice(0, 5);
     if (queue.length) {
       out.push(el("div", "font-weight: 600; font-size: 13px;", "Up next"));
-      const rowEl = el("div", "display: flex; gap: 10px; flex-wrap: wrap;");
-      rowEl.append(...queue.map(queueCard));
-      out.push(rowEl);
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...queue.map(queueRow));
+      out.push(list);
     }
     const retire = state.rows.filter((r) => r.status === "retire-candidate" && !r.dismissed).sort((a, b) => retireRank(b.row, b.events30) - retireRank(a.row, a.events30));
     if (retire.length) {
