@@ -59,7 +59,7 @@ ${f.content}`).join("\n\n");
   return { content: joined.slice(0, maxChars) + "\n\u2026(truncated)", truncated: true };
 }
 async function skillHash(files) {
-  const basis = skillSourceFiles(files).map((f) => `${f.path}\0${f.content}`).join("");
+  const basis = skillSourceFiles(files).map((f) => JSON.stringify([f.path, f.content])).join("\n");
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(basis));
   return [...new Uint8Array(buf).slice(0, 4)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
