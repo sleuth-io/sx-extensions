@@ -1,6 +1,6 @@
 {
   "activity-heatmap": {
-    "installs": 14
+    "installs": 15
   },
   "ai-assist": {
     "installs": 3
@@ -49,6 +49,9 @@
   },
   "review-rota": {
     "installs": 6
+  },
+  "skill-evals": {
+    "installs": 8
   },
   "smart-templates": {
     "installs": 11
