@@ -1,0 +1,108 @@
+// evals/evals.json handling — the pulse/skills.new interchange format.
+// Pure functions only (no sx, no DOM) so node --test covers them.
+
+export const EVALS_PATH = "evals/evals.json";
+
+/** Fields we understand; anything else on an eval is preserved verbatim
+ * so a skills.new round-trip (e.g. input_files) never loses data. */
+export function normalizeEval(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const prompt = typeof raw.prompt === "string" ? raw.prompt.trim() : "";
+  if (!prompt) return null;
+  const expectations = Array.isArray(raw.expectations)
+    ? raw.expectations.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim())
+    : [];
+  return {
+    ...raw,
+    eval_key: kebab(String(raw.eval_key || "").trim()) || kebab(prompt.slice(0, 40)),
+    prompt,
+    expected_output: typeof raw.expected_output === "string" ? raw.expected_output.trim() : "",
+    expectations,
+    category: raw.category === "edge-case" ? "edge-case" : "basic",
+    is_active: raw.is_active !== false,
+  };
+}
+
+/** Accepts the canonical `{"evals": [...]}` document or a bare array;
+ * unknown shapes yield an empty list rather than throwing. */
+export function parseEvals(content) {
+  let doc;
+  try {
+    doc = JSON.parse(content);
+  } catch {
+    return { evals: [], invalid: true };
+  }
+  const list = Array.isArray(doc) ? doc : Array.isArray(doc?.evals) ? doc.evals : null;
+  if (!list) return { evals: [], invalid: true };
+  return { evals: list.map(normalizeEval).filter(Boolean), invalid: false };
+}
+
+/** Always emits the canonical wrapper, 2-space indented, trailing newline. */
+export function serializeEvals(evals) {
+  return JSON.stringify({ evals }, null, 2) + "\n";
+}
+
+export function findEvalsFile(files) {
+  return files.find((f) => f.path === EVALS_PATH) || null;
+}
+
+export function activeEvals(evals) {
+  return evals.filter((e) => e.is_active);
+}
+
+export function kebab(s) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+/** Ensure generated keys don't collide with existing ones. */
+export function dedupeKeys(evals, existingKeys) {
+  const taken = new Set(existingKeys);
+  return evals.map((e) => {
+    let key = e.eval_key || "eval";
+    for (let i = 2; taken.has(key); i++) key = `${e.eval_key}-${i}`;
+    taken.add(key);
+    return { ...e, eval_key: key };
+  });
+}
+
+// ---- Skill content ----
+
+/** The benchmark/generation view of a skill: markdown-ish sources, most
+ * important first. metadata.toml and the evals file are excluded — they
+ * aren't skill behavior. */
+export function skillSourceFiles(files) {
+  return files
+    .filter((f) => f.path !== "metadata.toml" && !f.path.startsWith("evals/"))
+    .sort((a, b) =>
+      a.path === "SKILL.md" ? -1 : b.path === "SKILL.md" ? 1 : a.path.localeCompare(b.path),
+    );
+}
+
+export function skillContent(files, maxChars) {
+  const joined = skillSourceFiles(files)
+    .map((f) => `--- ${f.path} ---\n${f.content}`)
+    .join("\n\n");
+  if (joined.length <= maxChars) return { content: joined, truncated: false };
+  return { content: joined.slice(0, maxChars) + "\n…(truncated)", truncated: true };
+}
+
+/** 8-hex content hash of skill behavior — the staleness key for
+ * benchmarks. Excludes metadata.toml (writeAssetMetadata publishes
+ * metadata-only revisions) and evals/ (adding evals doesn't change what
+ * the skill does). Uses crypto.subtle: present in the webview and in
+ * node >= 15, so tests run unchanged. */
+export async function skillHash(files) {
+  // JSON framing keeps path/content boundaries unambiguous without
+  // control-byte separators (which text stores like pulse's reject).
+  const basis = skillSourceFiles(files)
+    .map((f) => JSON.stringify([f.path, f.content]))
+    .join("\n");
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(basis));
+  return [...new Uint8Array(buf).slice(0, 4)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}

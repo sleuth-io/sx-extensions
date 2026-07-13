@@ -1,0 +1,9 @@
+[asset]
+  name = "skill-evals"
+  version = "1"
+  type = "app-plugin"
+  description = "Generate evals for skills, benchmark them with-vs-without the skill using your AI provider, and see which skills actually earn their keep — including retire candidates the baseline already passes."
+
+[app-plugin]
+  entry = "main.js"
+  permissions = ["assets:read", "usage:read", "drafts:write", "llm:use", "storage:shared", "benchmarks", "views:main", "views:asset-tab", "commands", "events", "assets:write-metadata"]
