@@ -33,10 +33,12 @@ rebuilt for a team AI-asset library.
 | **Team Pulse** | Contribution Graph + Tracker | A GitHub-style contribution grid per member, an adoption leaderboard, and the team's most-used assets |
 | **Repo Doctor** | Janitor + folder health | 0–100 health score for a repo's scoped assets, flagging broken scopes, never-used, stale, and thin ones |
 | **Repo Sync Status** | Obsidian Git | What's scoped to a repo, when each asset last changed, an install-command copy button, and a history feed |
+| **Skill Evals** | skills.new evals + Anthropic skill-creator | Generate evals per skill (drafted into `evals/evals.json`, skills.new-compatible), benchmark with-vs-without the skill through your AI provider, and a Skill health view surfacing retire candidates the baseline already passes |
 
 The **Team** and **Repo** extensions need the sx app's `views:team` /
 `views:repo` slots (SxAPI 1.7.0). The **Collection** trio needs
-`views:collection` (1.6.0).
+`views:collection` (1.6.0). **Skill Evals** needs `llm:use` and
+`views:asset-tab`, and `benchmarks` (SxAPI 1.10.0, app 2.2.3+).
 
 An earlier **Library Search** extension (Omnisearch-inspired) was retired:
 ranked full-text content search is built into the sx app's main search box
