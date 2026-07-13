@@ -77,6 +77,66 @@ export async function generateEvals(sx, { name, description, files, existing, co
   return dedupeKeys(normalized, existingKeys);
 }
 
+const IMPROVE_SYSTEM = `You improve the eval suite for an AI assistant skill using its
+latest benchmark results.
+Rules:
+- KEEP evals that discriminate well (pass with the skill, fail without).
+- REPLACE non-discriminating evals (baseline passes too) with harder,
+  more skill-specific ones.
+- For failing evals, decide from the grade feedback whether the eval is
+  miscalibrated (ambiguous prompt, unverifiable or over-strict
+  expectations) and fix the eval — or leave it failing when it exposes a
+  real gap the skill should be fixed to cover.
+- Return the COMPLETE revised eval list (it replaces the old one).
+- Each prompt must be a realistic user ask answerable from the reply
+  text alone; 2-4 independently verifiable expectations; kebab-case keys.`;
+
+/** Revise the eval suite using the latest benchmark's per-eval results
+ * (and local grade feedback when this machine ran the benchmark).
+ * Returns the full replacement list, normalized. */
+export async function improveEvals(sx, { name, description, files, evals, latest, detailCells }) {
+  const { content, truncated } = skillContent(files, GENERATION_CONTEXT_CHARS);
+  const results = (latest?.perEval || [])
+    .map((p) => `- ${p.key}: ${p.status.replace(/_/g, " ")} (with ${Math.round(p.withPass * 100)}%, without ${Math.round(p.withoutPass * 100)}%)`)
+    .join("\n");
+  const feedback = (detailCells || [])
+    .filter((c) => c.config === "with" && (c.grades || []).some((g) => !g.pass))
+    .slice(0, 8)
+    .map((c) => {
+      const misses = c.grades.filter((g) => !g.pass).map((g) => `"${g.text}" — ${g.reason}`);
+      return `- ${c.evalKey}: failed ${misses.join("; ")}`;
+    })
+    .join("\n");
+  const user = [
+    `Revise the evals for this skill based on its latest benchmark.`,
+    ``,
+    `Skill name: ${name}`,
+    `Skill description: ${description || "No description"}`,
+    ``,
+    `Current evals:`,
+    JSON.stringify(evals, null, 1).slice(0, 6000),
+    ``,
+    `Latest benchmark, per eval:`,
+    results || "(no per-eval results)",
+    feedback ? `\nGrade feedback on failing with-skill runs:\n${feedback}` : ``,
+    ``,
+    `Skill content${truncated ? " (truncated)" : ""}:`,
+    content,
+  ].join("\n");
+
+  const result = await sx.llm.complete({
+    messages: [
+      { role: "system", content: IMPROVE_SYSTEM },
+      { role: "user", content: user },
+    ],
+    schema: GENERATION_SCHEMA,
+    maxTokens: 8192,
+  });
+  const raw = result.json && Array.isArray(result.json.evals) ? result.json.evals : [];
+  const normalized = raw.map(normalizeEval).filter(Boolean);
+  return dedupeKeys(normalized, []);
+}
+
 /** Write evals into the skill as a draft targeting the existing asset.
  *
  * The dance matters: publishing a draft whose targetAsset is unset takes

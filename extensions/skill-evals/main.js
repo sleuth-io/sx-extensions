@@ -64,6 +64,151 @@ async function skillHash(files) {
   return [...new Uint8Array(buf).slice(0, 4)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// src/generate.js
+var GENERATION_CONTEXT_CHARS = 8e3;
+var DEFAULT_COUNT = 8;
+var GENERATION_SCHEMA = {
+  type: "object",
+  required: ["evals"],
+  properties: {
+    evals: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["eval_key", "prompt", "expected_output", "expectations", "category"],
+        properties: {
+          eval_key: { type: "string" },
+          prompt: { type: "string" },
+          expected_output: { type: "string" },
+          expectations: { type: "array", items: { type: "string" } },
+          category: { type: "string", enum: ["basic", "edge-case"] }
+        }
+      }
+    }
+  }
+};
+var SYSTEM = `You generate functional test cases (evals) for AI assistant skills.
+Rules:
+- Each prompt must be a realistic, specific user ask \u2014 something a person
+  would actually type \u2014 answerable from the reply text alone.
+- Each eval needs 2-4 expectations: short, independently verifiable
+  assertions about the reply. Objective checks only; no style opinions.
+- eval_key is a unique kebab-case identifier.
+- category is "basic" for core behavior, "edge-case" for tricky inputs.`;
+async function generateEvals(sx, { name, description, files, existing, count }) {
+  const n = count || DEFAULT_COUNT;
+  const edge = Math.max(1, Math.round(n / 4));
+  const { content, truncated } = skillContent(files, GENERATION_CONTEXT_CHARS);
+  const existingKeys = existing.map((e) => e.eval_key);
+  const user = [
+    `Generate ${n} evals for this skill (${n - edge} "basic", ${edge} "edge-case").`,
+    ``,
+    `Skill name: ${name}`,
+    `Skill description: ${description || "No description"}`,
+    existingKeys.length ? `Existing eval keys (do NOT duplicate or rephrase these): ${existingKeys.join(", ")}` : ``,
+    ``,
+    `Skill content${truncated ? " (truncated)" : ""}:`,
+    content
+  ].filter((line) => line !== null).join("\n");
+  const result = await sx.llm.complete({
+    messages: [
+      { role: "system", content: SYSTEM },
+      { role: "user", content: user }
+    ],
+    schema: GENERATION_SCHEMA,
+    maxTokens: 8192
+  });
+  const raw = result.json && Array.isArray(result.json.evals) ? result.json.evals : [];
+  const normalized = raw.map(normalizeEval).filter(Boolean);
+  return dedupeKeys(normalized, existingKeys);
+}
+var IMPROVE_SYSTEM = `You improve the eval suite for an AI assistant skill using its
+latest benchmark results.
+Rules:
+- KEEP evals that discriminate well (pass with the skill, fail without).
+- REPLACE non-discriminating evals (baseline passes too) with harder,
+  more skill-specific ones.
+- For failing evals, decide from the grade feedback whether the eval is
+  miscalibrated (ambiguous prompt, unverifiable or over-strict
+  expectations) and fix the eval \u2014 or leave it failing when it exposes a
+  real gap the skill should be fixed to cover.
+- Return the COMPLETE revised eval list (it replaces the old one).
+- Each prompt must be a realistic user ask answerable from the reply
+  text alone; 2-4 independently verifiable expectations; kebab-case keys.`;
+async function improveEvals(sx, { name, description, files, evals, latest, detailCells }) {
+  const { content, truncated } = skillContent(files, GENERATION_CONTEXT_CHARS);
+  const results = (latest?.perEval || []).map((p) => `- ${p.key}: ${p.status.replace(/_/g, " ")} (with ${Math.round(p.withPass * 100)}%, without ${Math.round(p.withoutPass * 100)}%)`).join("\n");
+  const feedback = (detailCells || []).filter((c) => c.config === "with" && (c.grades || []).some((g) => !g.pass)).slice(0, 8).map((c) => {
+    const misses = c.grades.filter((g) => !g.pass).map((g) => `"${g.text}" \u2014 ${g.reason}`);
+    return `- ${c.evalKey}: failed ${misses.join("; ")}`;
+  }).join("\n");
+  const user = [
+    `Revise the evals for this skill based on its latest benchmark.`,
+    ``,
+    `Skill name: ${name}`,
+    `Skill description: ${description || "No description"}`,
+    ``,
+    `Current evals:`,
+    JSON.stringify(evals, null, 1).slice(0, 6e3),
+    ``,
+    `Latest benchmark, per eval:`,
+    results || "(no per-eval results)",
+    feedback ? `
+Grade feedback on failing with-skill runs:
+${feedback}` : ``,
+    ``,
+    `Skill content${truncated ? " (truncated)" : ""}:`,
+    content
+  ].join("\n");
+  const result = await sx.llm.complete({
+    messages: [
+      { role: "system", content: IMPROVE_SYSTEM },
+      { role: "user", content: user }
+    ],
+    schema: GENERATION_SCHEMA,
+    maxTokens: 8192
+  });
+  const raw = result.json && Array.isArray(result.json.evals) ? result.json.evals : [];
+  const normalized = raw.map(normalizeEval).filter(Boolean);
+  return dedupeKeys(normalized, []);
+}
+async function writeEvalsDraft(sx, skillName, files, evals) {
+  const evalsFile = { path: EVALS_PATH, content: serializeEvals(evals) };
+  const nextFiles = [
+    // Every other file byte-identical: publish re-zips the draft as the
+    // complete next revision, so a dropped file would be a deletion.
+    ...files.filter((f) => f.path !== EVALS_PATH),
+    evalsFile
+  ];
+  const drafts = await sx.drafts.list();
+  const existing = drafts.find((d) => d.targetAsset === skillName || d.name === skillName);
+  if (existing) {
+    if (existing.targetAsset !== skillName) {
+      return {
+        ok: false,
+        message: `A draft named "${existing.name}" exists but doesn't target ${skillName} \u2014 publish or discard it first, then regenerate.`
+      };
+    }
+    const overwrite = await sx.ui.confirm(
+      `A draft for ${skillName} already exists. Replace its files with the current skill plus the updated evals?`,
+      "Update draft"
+    );
+    if (!overwrite) return { ok: false, message: "Kept the existing draft untouched." };
+    await sx.drafts.updateFiles(existing.id, nextFiles);
+    return { ok: true, message: `Updated the ${skillName} draft \u2014 review and publish it.` };
+  }
+  const { id } = await sx.drafts.create({ name: skillName, files: nextFiles });
+  await sx.drafts.updateFiles(id, nextFiles);
+  const created = (await sx.drafts.list()).find((d) => d.id === id);
+  if (!created || created.targetAsset !== skillName) {
+    return {
+      ok: false,
+      message: `Draft "${id}" was created but does not target ${skillName} \u2014 publishing it would create a new asset or reset sharing. Discard it and retry on a newer app build.`
+    };
+  }
+  return { ok: true, message: `Draft with ${evals.length} evals created \u2014 review and publish it.` };
+}
+
 // src/store.js
 var KEEP_SUMMARIES = 3;
 var KEEP_DETAILS = 8;
@@ -620,101 +765,6 @@ function fmtAgo(epochMs) {
   return months < 12 ? `${months}mo ago` : `${Math.floor(months / 12)}y ago`;
 }
 
-// src/generate.js
-var GENERATION_CONTEXT_CHARS = 8e3;
-var DEFAULT_COUNT = 8;
-var GENERATION_SCHEMA = {
-  type: "object",
-  required: ["evals"],
-  properties: {
-    evals: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["eval_key", "prompt", "expected_output", "expectations", "category"],
-        properties: {
-          eval_key: { type: "string" },
-          prompt: { type: "string" },
-          expected_output: { type: "string" },
-          expectations: { type: "array", items: { type: "string" } },
-          category: { type: "string", enum: ["basic", "edge-case"] }
-        }
-      }
-    }
-  }
-};
-var SYSTEM = `You generate functional test cases (evals) for AI assistant skills.
-Rules:
-- Each prompt must be a realistic, specific user ask \u2014 something a person
-  would actually type \u2014 answerable from the reply text alone.
-- Each eval needs 2-4 expectations: short, independently verifiable
-  assertions about the reply. Objective checks only; no style opinions.
-- eval_key is a unique kebab-case identifier.
-- category is "basic" for core behavior, "edge-case" for tricky inputs.`;
-async function generateEvals(sx, { name, description, files, existing, count }) {
-  const n = count || DEFAULT_COUNT;
-  const edge = Math.max(1, Math.round(n / 4));
-  const { content, truncated } = skillContent(files, GENERATION_CONTEXT_CHARS);
-  const existingKeys = existing.map((e) => e.eval_key);
-  const user = [
-    `Generate ${n} evals for this skill (${n - edge} "basic", ${edge} "edge-case").`,
-    ``,
-    `Skill name: ${name}`,
-    `Skill description: ${description || "No description"}`,
-    existingKeys.length ? `Existing eval keys (do NOT duplicate or rephrase these): ${existingKeys.join(", ")}` : ``,
-    ``,
-    `Skill content${truncated ? " (truncated)" : ""}:`,
-    content
-  ].filter((line) => line !== null).join("\n");
-  const result = await sx.llm.complete({
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: user }
-    ],
-    schema: GENERATION_SCHEMA,
-    maxTokens: 8192
-  });
-  const raw = result.json && Array.isArray(result.json.evals) ? result.json.evals : [];
-  const normalized = raw.map(normalizeEval).filter(Boolean);
-  return dedupeKeys(normalized, existingKeys);
-}
-async function writeEvalsDraft(sx, skillName, files, evals) {
-  const evalsFile = { path: EVALS_PATH, content: serializeEvals(evals) };
-  const nextFiles = [
-    // Every other file byte-identical: publish re-zips the draft as the
-    // complete next revision, so a dropped file would be a deletion.
-    ...files.filter((f) => f.path !== EVALS_PATH),
-    evalsFile
-  ];
-  const drafts = await sx.drafts.list();
-  const existing = drafts.find((d) => d.targetAsset === skillName || d.name === skillName);
-  if (existing) {
-    if (existing.targetAsset !== skillName) {
-      return {
-        ok: false,
-        message: `A draft named "${existing.name}" exists but doesn't target ${skillName} \u2014 publish or discard it first, then regenerate.`
-      };
-    }
-    const overwrite = await sx.ui.confirm(
-      `A draft for ${skillName} already exists. Replace its files with the current skill plus the updated evals?`,
-      "Update draft"
-    );
-    if (!overwrite) return { ok: false, message: "Kept the existing draft untouched." };
-    await sx.drafts.updateFiles(existing.id, nextFiles);
-    return { ok: true, message: `Updated the ${skillName} draft \u2014 review and publish it.` };
-  }
-  const { id } = await sx.drafts.create({ name: skillName, files: nextFiles });
-  await sx.drafts.updateFiles(id, nextFiles);
-  const created = (await sx.drafts.list()).find((d) => d.id === id);
-  if (!created || created.targetAsset !== skillName) {
-    return {
-      ok: false,
-      message: `Draft "${id}" was created but does not target ${skillName} \u2014 publishing it would create a new asset or reset sharing. Discard it and retry on a newer app build.`
-    };
-  }
-  return { ok: true, message: `Draft with ${evals.length} evals created \u2014 review and publish it.` };
-}
-
 // src/ui-tab.js
 var TOOL = "background: none; border: 0; padding: 4px 6px; font: inherit; font-size: 12px;font-weight: 500; cursor: pointer; color: var(--color-accent); white-space: nowrap;";
 async function mountTab(plugin, view, ctx) {
@@ -873,6 +923,12 @@ async function mountTab(plugin, view, ctx) {
     gen.onclick = () => void onGenerate(false);
     row.append(gen);
     if (state.evals.length) {
+      if (state.history.length) {
+        const improve = el("button", TOOL, "\u2699 Improve evals");
+        improve.title = "Revise the suite using the latest benchmark's per-eval results";
+        improve.onclick = () => void plugin.improveEvalsFor(name).then(refresh);
+        row.append(improve);
+      }
       const regen = el("button", TOOL, "\u21BB Re-generate all");
       regen.onclick = () => void onGenerate(true);
       row.append(regen);
@@ -1095,6 +1151,25 @@ async function mountTab(plugin, view, ctx) {
 }
 
 // src/ui-main.js
+var NAME_COL = "font-weight: 600; width: 220px; flex: none; overflow: hidden;text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--color-ink);";
+var STATUS_HELP = [
+  ["No evals", "Nothing to measure yet \u2014 generate a starter set."],
+  ["Not benchmarked", "Has evals, but no benchmark has run."],
+  [
+    "Stale",
+    "The skill (or your AI provider) changed since its last benchmark \u2014 the verdict may no longer apply. Re-benchmark."
+  ],
+  [
+    "Failing",
+    "Fails its own evals even WITH the skill loaded. Fix the skill, or use Improve evals to recalibrate a bad eval suite \u2014 this is not a deletion signal."
+  ],
+  [
+    "Retire candidate",
+    "The baseline model passes this skill's evals WITHOUT it (delta \u2248 0). It may not be earning its keep \u2014 deprecate or retire it."
+  ],
+  ["Marginal", "Passes, but adds little over the baseline."],
+  ["Healthy", "Clear uplift over the baseline \u2014 the skill earns its keep."]
+];
 var STATUS_LABEL = {
   "no-evals": "No evals",
   "not-benchmarked": "Not benchmarked",
@@ -1130,8 +1205,10 @@ async function mountMain(plugin, view) {
     rows: [],
     dismissed: {},
     filter: "",
+    showLegend: false,
     collectedAt: 0
   };
+  const openEvals = (name) => sx.ui.openAsset(name, { tab: "evals" });
   const rerender = () => {
     if (state.disposed) return;
     view.el.style.cssText = "display: flex; flex-direction: column; gap: 12px;";
@@ -1272,15 +1349,33 @@ async function mountMain(plugin, view) {
     const rollup = skills ? `${skills} skills \xB7 ${withEvals} with evals (${Math.round(withEvals / skills * 100)}%) \xB7 ${benched} benchmarked \xB7 ${retire} retire candidate${retire === 1 ? "" : "s"} \xB7 ${failing} failing` : "No skills in this library yet.";
     title.append(el("div", SOFT + "font-size: 13px;", rollup));
     const spacer = el("div", "flex: 1;");
+    const help = el("button", SMALL_BUTTON + "border-radius: 999px; line-height: 1;", "?");
+    help.title = "What the statuses mean";
+    help.onclick = () => {
+      state.showLegend = !state.showLegend;
+      rerender();
+    };
     if (state.refreshing && state.rows.length) {
-      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing\u2026"));
+      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing\u2026"), help);
       return wrap;
     }
     const refresh = el("button", SMALL_BUTTON, "Refresh");
     refresh.title = "Re-read every skill's files (evals can change without a version bump)";
     refresh.onclick = () => void collect(true);
-    wrap.append(title, spacer, refresh);
+    wrap.append(title, spacer, refresh, help);
     return wrap;
+  }
+  function legend() {
+    const panel = el("div", NOTE + "display: flex; flex-direction: column; gap: 5px;");
+    for (const [label, meaning] of STATUS_HELP) {
+      const line = el("div", "display: flex; gap: 8px; align-items: baseline;");
+      line.append(
+        el("span", "font-weight: 600; font-size: 12px; width: 120px; flex: none;", label),
+        el("span", SOFT + "font-size: 12px;", meaning)
+      );
+      panel.append(line);
+    }
+    return panel;
   }
   function providerPrompt() {
     const row = el("div", NOTE + "display: flex; gap: 8px; align-items: center; flex-wrap: wrap;");
@@ -1313,12 +1408,9 @@ async function mountMain(plugin, view) {
       "div",
       "display: flex; gap: 8px; align-items: center; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface);"
     );
-    const nameLink = el(
-      "a",
-      "font-weight: 600; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
-      r.name
-    );
-    nameLink.onclick = () => sx.ui.openAsset(r.name);
+    const nameLink = el("a", NAME_COL, r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openEvals(r.name);
     row.append(nameLink);
     for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
     const action = el(
@@ -1328,7 +1420,7 @@ async function mountMain(plugin, view) {
     );
     action.onclick = () => {
       if (r.facts.activeCount > 0) void plugin.startBenchmark(r.name, 1).then(collect);
-      else sx.ui.openAsset(r.name);
+      else openEvals(r.name);
     };
     row.append(action);
     return row;
@@ -1339,16 +1431,14 @@ async function mountMain(plugin, view) {
       "display: flex; flex-direction: column; gap: 3px; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px;background: var(--color-surface);"
     );
     const head = el("div", "display: flex; gap: 8px; align-items: center;");
-    const nameLink = el(
-      "a",
-      "font-weight: 600; font-size: 12px; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
-      r.name
-    );
-    nameLink.onclick = () => sx.ui.openAsset(r.name);
+    const nameLink = el("a", NAME_COL + "font-size: 12px;", r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openEvals(r.name);
     head.append(
       nameLink,
       chip("retire candidate", "danger"),
       menuButton([
+        { label: "Open evals", run: () => openEvals(r.name) },
         { label: "Re-benchmark", run: () => void plugin.startBenchmark(r.name, 1).then(collect) },
         { label: "Mark deprecated\u2026", run: () => void markDeprecated(r.name) },
         { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true }
@@ -1384,22 +1474,47 @@ async function mountMain(plugin, view) {
     for (const r of rows) {
       const line = el(
         "div",
-        "display: flex; gap: 10px; align-items: center; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface); cursor: pointer;"
+        "display: flex; gap: 10px; align-items: center; padding: 4px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface); cursor: pointer;"
       );
-      line.onclick = () => sx.ui.openAsset(r.name);
+      line.onclick = () => openEvals(r.name);
       const tone = r.status === "healthy" ? "accent" : r.status === "retire-candidate" || r.status === "failing" ? "danger" : "faint";
       const detail = r.row ? `with ${fmtPct(r.row.wp)} \xB7 baseline ${fmtPct(r.row.bp)} \xB7 \u0394 ${r.row.d >= 0 ? "+" : ""}${r.row.d}` : r.facts.activeCount > 0 ? `${r.facts.activeCount} active eval${r.facts.activeCount === 1 ? "" : "s"}` : "";
-      line.append(
-        el("span", "font-weight: 600; min-width: 160px;", r.name),
-        chip(STATUS_LABEL[r.status] + (r.dismissed ? " \xB7 dismissed" : ""), tone)
-      );
-      if (detail) line.append(el("span", SOFT, detail));
+      const name = el("span", NAME_COL, r.name);
+      name.title = r.name;
+      line.append(name, chip(STATUS_LABEL[r.status] + (r.dismissed ? " \xB7 dismissed" : ""), tone));
+      if (detail) line.append(el("span", SOFT + "white-space: nowrap;", detail));
+      line.append(el("span", "flex: 1;"));
       if (r.events30 > 0) {
-        line.append(el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`));
+        line.append(el("span", FAINT + "white-space: nowrap;", `${r.events30} uses/30d`));
       }
+      line.append(rowMenu(r));
       wrap.append(line);
     }
     return wrap;
+  }
+  function rowMenu(r) {
+    const items = [{ label: "Open evals", run: () => openEvals(r.name) }];
+    if (r.facts.activeCount > 0) {
+      items.push({
+        label: r.row ? "Re-benchmark" : "Run benchmark",
+        run: () => void plugin.startBenchmark(r.name, 1).then(collect)
+      });
+    } else {
+      items.push({ label: "Generate evals", run: () => openEvals(r.name) });
+    }
+    if (r.row && r.facts.activeCount > 0) {
+      items.push({ label: "Improve evals\u2026", run: () => void plugin.improveEvalsFor(r.name) });
+    }
+    if (r.status === "retire-candidate") {
+      items.push({ label: "Mark deprecated\u2026", run: () => void markDeprecated(r.name) });
+      items.push(
+        r.dismissed ? { label: "Undismiss", run: () => void dismiss(r.name, true) } : { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true }
+      );
+    }
+    const menu = menuButton(items);
+    menu.style.marginLeft = "0";
+    menu.onclick = (e) => e.stopPropagation();
+    return menu;
   }
   function render() {
     const out = [];
@@ -1407,6 +1522,7 @@ async function mountMain(plugin, view) {
     const strip = runStrip();
     if (strip) out.push(strip);
     out.push(header());
+    if (state.showLegend) out.push(legend());
     if (state.status) {
       out.push(el("div", FAINT + "font-size: 13px; padding: 8px;", state.status));
       return out;
@@ -1687,6 +1803,55 @@ var SkillEvals = class {
     } catch {
       const shared = await loadShared(this.sx);
       return shared.skills || {};
+    }
+  }
+  /** Revise a skill's evals using its latest benchmark — the smart
+   * follow-up for failing or non-discriminating results. Lands in a
+   * draft the user reviews and publishes. */
+  async improveEvalsFor(skillName) {
+    const sx = this.sx;
+    const provider = await sx.llm.provider().catch(() => "");
+    if (!provider) {
+      sx.ui.notice("No AI provider configured \u2014 set one in Settings \u2192 AI provider.");
+      sx.ui.openSettings("ai");
+      return;
+    }
+    const ok = await sx.ui.confirm(
+      `Revise ${skillName}'s evals using its latest benchmark results? Good evals are kept, miscalibrated and non-discriminating ones are rewritten \u2014 the result lands in a draft you review and publish.`,
+      "Improve evals"
+    );
+    if (!ok) return;
+    try {
+      const [files, history, local, assets] = await Promise.all([
+        sx.assets.readFiles(skillName),
+        this.benchmarkHistory(skillName),
+        loadLocal(sx),
+        sx.assets.list().catch(() => [])
+      ]);
+      const evalsFile = findEvalsFile(files);
+      const evals = evalsFile ? parseEvals(evalsFile.content).evals : [];
+      if (!evals.length) {
+        sx.ui.notice(`${skillName} has no evals to improve \u2014 generate some first.`);
+        return;
+      }
+      sx.ui.notice("Improving evals with your AI provider\u2026");
+      const revised = await improveEvals(sx, {
+        name: skillName,
+        description: assets.find((a) => a.name === skillName)?.description || "",
+        files,
+        evals,
+        latest: history[0],
+        detailCells: local.detail[skillName]?.cells
+      });
+      if (!revised.length) {
+        sx.ui.notice("The provider returned no usable evals \u2014 try again.");
+        return;
+      }
+      const res = await writeEvalsDraft(sx, skillName, files, revised);
+      sx.ui.notice(res.message);
+      this.notify();
+    } catch (err) {
+      sx.ui.notice(`Improving evals failed: ${err?.message || err}`);
     }
   }
   /** A skill's benchmark history as normalized rows, newest first. */

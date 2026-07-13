@@ -104,6 +104,48 @@ test("refuses a same-name draft that targets something else", async () => {
   assert.match(res.message, /doesn't target/);
 });
 
+test("improveEvals feeds benchmark results and grade feedback to the provider", async () => {
+  const { improveEvals } = await import("../src/generate.js");
+  let seen = "";
+  const sx = {
+    llm: {
+      async complete(req) {
+        seen = req.messages[1].content;
+        return {
+          json: {
+            evals: [
+              { eval_key: "sharper-case", prompt: "p", expected_output: "o", expectations: ["a"], category: "basic" },
+            ],
+          },
+          text: "{}",
+          usage: { inputTokens: 0, outputTokens: 0 },
+        };
+      },
+    },
+  };
+  const out = await improveEvals(sx, {
+    name: "s",
+    description: "d",
+    files: [{ path: "SKILL.md", content: "body" }],
+    evals: [{ eval_key: "old-eval", prompt: "p", expected_output: "", expectations: ["x"], category: "basic", is_active: true }],
+    latest: {
+      perEval: [{ key: "old-eval", withPass: 0.5, withoutPass: 0.5, status: "non_discriminating" }],
+    },
+    detailCells: [
+      {
+        evalKey: "old-eval",
+        config: "with",
+        grades: [{ text: "mentions X", pass: false, reason: "reply never mentions X" }],
+      },
+    ],
+  });
+  assert.equal(out[0].eval_key, "sharper-case");
+  assert.equal(out[0].is_active, true);
+  assert.ok(seen.includes("old-eval: non discriminating"), "per-eval results in prompt");
+  assert.ok(seen.includes("reply never mentions X"), "grade feedback in prompt");
+  assert.ok(seen.includes("Current evals:"), "existing evals in prompt");
+});
+
 test("generateEvals dedupes keys against existing evals", async () => {
   const sx = {
     llm: {

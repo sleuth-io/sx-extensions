@@ -19,6 +19,31 @@ import {
 import { loadUsage, usageBySkill, saveLocal } from "./store.js";
 import { skillStatus, attentionScore, retireRank } from "./health.js";
 
+// One fixed name-column width across queue, retire, and table rows so
+// the status chips align into a scannable column.
+const NAME_COL =
+  "font-weight: 600; width: 220px; flex: none; overflow: hidden;" +
+  "text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--color-ink);";
+
+const STATUS_HELP = [
+  ["No evals", "Nothing to measure yet — generate a starter set."],
+  ["Not benchmarked", "Has evals, but no benchmark has run."],
+  [
+    "Stale",
+    "The skill (or your AI provider) changed since its last benchmark — the verdict may no longer apply. Re-benchmark.",
+  ],
+  [
+    "Failing",
+    "Fails its own evals even WITH the skill loaded. Fix the skill, or use Improve evals to recalibrate a bad eval suite — this is not a deletion signal.",
+  ],
+  [
+    "Retire candidate",
+    "The baseline model passes this skill's evals WITHOUT it (delta ≈ 0). It may not be earning its keep — deprecate or retire it.",
+  ],
+  ["Marginal", "Passes, but adds little over the baseline."],
+  ["Healthy", "Clear uplift over the baseline — the skill earns its keep."],
+];
+
 const STATUS_LABEL = {
   "no-evals": "No evals",
   "not-benchmarked": "Not benchmarked",
@@ -56,8 +81,13 @@ export async function mountMain(plugin, view) {
     rows: [],
     dismissed: {},
     filter: "",
+    showLegend: false,
     collectedAt: 0,
   };
+
+  // Deep-link to the skill's Evals tab — the dashboard's rows are about
+  // evals, so that's where every skill link lands.
+  const openEvals = (name) => sx.ui.openAsset(name, { tab: "evals" });
 
   const rerender = () => {
     if (state.disposed) return;
@@ -220,15 +250,34 @@ export async function mountMain(plugin, view) {
     // The app chrome already titles this view — one rollup line is enough.
     title.append(el("div", SOFT + "font-size: 13px;", rollup));
     const spacer = el("div", "flex: 1;");
+    const help = el("button", SMALL_BUTTON + "border-radius: 999px; line-height: 1;", "?");
+    help.title = "What the statuses mean";
+    help.onclick = () => {
+      state.showLegend = !state.showLegend;
+      rerender();
+    };
     if (state.refreshing && state.rows.length) {
-      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing…"));
+      wrap.append(title, spacer, el("span", FAINT + "font-size: 12px;", "Refreshing…"), help);
       return wrap;
     }
     const refresh = el("button", SMALL_BUTTON, "Refresh");
     refresh.title = "Re-read every skill's files (evals can change without a version bump)";
     refresh.onclick = () => void collect(true);
-    wrap.append(title, spacer, refresh);
+    wrap.append(title, spacer, refresh, help);
     return wrap;
+  }
+
+  function legend() {
+    const panel = el("div", NOTE + "display: flex; flex-direction: column; gap: 5px;");
+    for (const [label, meaning] of STATUS_HELP) {
+      const line = el("div", "display: flex; gap: 8px; align-items: baseline;");
+      line.append(
+        el("span", "font-weight: 600; font-size: 12px; width: 120px; flex: none;", label),
+        el("span", SOFT + "font-size: 12px;", meaning),
+      );
+      panel.append(line);
+    }
+    return panel;
   }
 
   function providerPrompt() {
@@ -266,12 +315,9 @@ export async function mountMain(plugin, view) {
         "border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;" +
         "background: var(--color-surface);",
     );
-    const nameLink = el(
-      "a",
-      "font-weight: 600; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
-      r.name,
-    );
-    nameLink.onclick = () => sx.ui.openAsset(r.name);
+    const nameLink = el("a", NAME_COL, r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openEvals(r.name);
     row.append(nameLink);
     for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
     const action = el(
@@ -281,7 +327,7 @@ export async function mountMain(plugin, view) {
     );
     action.onclick = () => {
       if (r.facts.activeCount > 0) void plugin.startBenchmark(r.name, 1).then(collect);
-      else sx.ui.openAsset(r.name);
+      else openEvals(r.name);
     };
     row.append(action);
     return row;
@@ -295,16 +341,14 @@ export async function mountMain(plugin, view) {
         "background: var(--color-surface);",
     );
     const head = el("div", "display: flex; gap: 8px; align-items: center;");
-    const nameLink = el(
-      "a",
-      "font-weight: 600; font-size: 12px; cursor: pointer; color: var(--color-ink); white-space: nowrap;",
-      r.name,
-    );
-    nameLink.onclick = () => sx.ui.openAsset(r.name);
+    const nameLink = el("a", NAME_COL + "font-size: 12px;", r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openEvals(r.name);
     head.append(
       nameLink,
       chip("retire candidate", "danger"),
       menuButton([
+        { label: "Open evals", run: () => openEvals(r.name) },
         { label: "Re-benchmark", run: () => void plugin.startBenchmark(r.name, 1).then(collect) },
         { label: "Mark deprecated…", run: () => void markDeprecated(r.name) },
         { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true },
@@ -350,11 +394,11 @@ export async function mountMain(plugin, view) {
     for (const r of rows) {
       const line = el(
         "div",
-        "display: flex; gap: 10px; align-items: center; padding: 6px 10px;" +
+        "display: flex; gap: 10px; align-items: center; padding: 4px 10px;" +
           "border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;" +
           "background: var(--color-surface); cursor: pointer;",
       );
-      line.onclick = () => sx.ui.openAsset(r.name);
+      line.onclick = () => openEvals(r.name);
       const tone =
         r.status === "healthy" ? "accent" : r.status === "retire-candidate" || r.status === "failing" ? "danger" : "faint";
       // The status chip already says "no evals" — skip redundant detail
@@ -364,17 +408,49 @@ export async function mountMain(plugin, view) {
         : r.facts.activeCount > 0
           ? `${r.facts.activeCount} active eval${r.facts.activeCount === 1 ? "" : "s"}`
           : "";
-      line.append(
-        el("span", "font-weight: 600; min-width: 160px;", r.name),
-        chip(STATUS_LABEL[r.status] + (r.dismissed ? " · dismissed" : ""), tone),
-      );
-      if (detail) line.append(el("span", SOFT, detail));
+      const name = el("span", NAME_COL, r.name);
+      name.title = r.name;
+      line.append(name, chip(STATUS_LABEL[r.status] + (r.dismissed ? " · dismissed" : ""), tone));
+      if (detail) line.append(el("span", SOFT + "white-space: nowrap;", detail));
+      line.append(el("span", "flex: 1;"));
       if (r.events30 > 0) {
-        line.append(el("span", FAINT + "margin-left: auto; white-space: nowrap;", `${r.events30} uses/30d`));
+        line.append(el("span", FAINT + "white-space: nowrap;", `${r.events30} uses/30d`));
       }
+      line.append(rowMenu(r));
       wrap.append(line);
     }
     return wrap;
+  }
+
+  /** Contextual actions per table row. Failing skills get "Improve
+   * evals" (recalibrate the suite from benchmark feedback) — deletion
+   * is only suggested for retire candidates, and even that stays a
+   * confirmed, human choice. */
+  function rowMenu(r) {
+    const items = [{ label: "Open evals", run: () => openEvals(r.name) }];
+    if (r.facts.activeCount > 0) {
+      items.push({
+        label: r.row ? "Re-benchmark" : "Run benchmark",
+        run: () => void plugin.startBenchmark(r.name, 1).then(collect),
+      });
+    } else {
+      items.push({ label: "Generate evals", run: () => openEvals(r.name) });
+    }
+    if (r.row && r.facts.activeCount > 0) {
+      items.push({ label: "Improve evals…", run: () => void plugin.improveEvalsFor(r.name) });
+    }
+    if (r.status === "retire-candidate") {
+      items.push({ label: "Mark deprecated…", run: () => void markDeprecated(r.name) });
+      items.push(
+        r.dismissed
+          ? { label: "Undismiss", run: () => void dismiss(r.name, true) }
+          : { label: "Dismiss", run: () => void dismiss(r.name, false), danger: true },
+      );
+    }
+    const menu = menuButton(items);
+    menu.style.marginLeft = "0";
+    menu.onclick = (e) => e.stopPropagation(); // keep the row click from firing
+    return menu;
   }
 
   function render() {
@@ -383,6 +459,7 @@ export async function mountMain(plugin, view) {
     const strip = runStrip();
     if (strip) out.push(strip);
     out.push(header());
+    if (state.showLegend) out.push(legend());
     if (state.status) {
       out.push(el("div", FAINT + "font-size: 13px; padding: 8px;", state.status));
       return out;

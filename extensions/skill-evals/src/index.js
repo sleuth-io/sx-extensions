@@ -7,6 +7,7 @@
 // in-progress state persists to sx.storage so an app restart can resume.
 
 import { findEvalsFile, parseEvals, activeEvals, skillHash } from "./evals.js";
+import { improveEvals, writeEvalsDraft } from "./generate.js";
 import { loadLocal, saveLocal, loadShared, mergeSaveShared, FACTS_TTL_MS } from "./store.js";
 import { runBenchmark, buildSummary, estimateCalls, isCliProvider } from "./benchmark.js";
 import { toInterchange, fromInterchange } from "./health.js";
@@ -281,6 +282,57 @@ export default class SkillEvals {
     } catch {
       const shared = await loadShared(this.sx);
       return shared.skills || {};
+    }
+  }
+
+  /** Revise a skill's evals using its latest benchmark — the smart
+   * follow-up for failing or non-discriminating results. Lands in a
+   * draft the user reviews and publishes. */
+  async improveEvalsFor(skillName) {
+    const sx = this.sx;
+    const provider = await sx.llm.provider().catch(() => "");
+    if (!provider) {
+      sx.ui.notice("No AI provider configured — set one in Settings → AI provider.");
+      sx.ui.openSettings("ai");
+      return;
+    }
+    const ok = await sx.ui.confirm(
+      `Revise ${skillName}'s evals using its latest benchmark results? Good evals are kept, ` +
+        `miscalibrated and non-discriminating ones are rewritten — the result lands in a draft you review and publish.`,
+      "Improve evals",
+    );
+    if (!ok) return;
+    try {
+      const [files, history, local, assets] = await Promise.all([
+        sx.assets.readFiles(skillName),
+        this.benchmarkHistory(skillName),
+        loadLocal(sx),
+        sx.assets.list().catch(() => []),
+      ]);
+      const evalsFile = findEvalsFile(files);
+      const evals = evalsFile ? parseEvals(evalsFile.content).evals : [];
+      if (!evals.length) {
+        sx.ui.notice(`${skillName} has no evals to improve — generate some first.`);
+        return;
+      }
+      sx.ui.notice("Improving evals with your AI provider…");
+      const revised = await improveEvals(sx, {
+        name: skillName,
+        description: assets.find((a) => a.name === skillName)?.description || "",
+        files,
+        evals,
+        latest: history[0],
+        detailCells: local.detail[skillName]?.cells,
+      });
+      if (!revised.length) {
+        sx.ui.notice("The provider returned no usable evals — try again.");
+        return;
+      }
+      const res = await writeEvalsDraft(sx, skillName, files, revised);
+      sx.ui.notice(res.message);
+      this.notify();
+    } catch (err) {
+      sx.ui.notice(`Improving evals failed: ${err?.message || err}`);
     }
   }
 

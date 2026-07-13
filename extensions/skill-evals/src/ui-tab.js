@@ -174,6 +174,12 @@ export async function mountTab(plugin, view, ctx) {
     gen.onclick = () => void onGenerate(false);
     row.append(gen);
     if (state.evals.length) {
+      if (state.history.length) {
+        const improve = el("button", TOOL, "⚙ Improve evals");
+        improve.title = "Revise the suite using the latest benchmark's per-eval results";
+        improve.onclick = () => void plugin.improveEvalsFor(name).then(refresh);
+        row.append(improve);
+      }
       const regen = el("button", TOOL, "↻ Re-generate all");
       regen.onclick = () => void onGenerate(true);
       row.append(regen);
