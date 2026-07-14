@@ -9,6 +9,7 @@
 
 import { evaluateLocally } from "./evaluate.js";
 import { mountTab } from "./ui-tab.js";
+import { mountMain } from "./ui-main.js";
 
 const POLL_MS = 4000;
 const POLL_LIMIT_MS = 5 * 60 * 1000;
@@ -19,10 +20,22 @@ export default class SkillQuality {
     this.rerenders = new Set();
     this.refreshers = new Map(); // asset -> refetch fn for the mounted tab
     this.busy = new Map(); // asset -> "server" | "local"
+    this.boardRefresh = null; // the mounted board's recollect fn
     sx.registerAssetTab({
       id: "quality",
       title: "Quality",
       mount: (view, ctx) => void mountTab(this, view, ctx),
+    });
+    sx.registerMainView({
+      id: "skill-quality",
+      title: "Skill Quality",
+      section: "tools",
+      mount: (view) => void mountMain(this, view),
+    });
+    sx.registerCommand({
+      id: "open-quality-board",
+      title: "Skill Quality: open board",
+      run: () => sx.ui.openView("skill-quality"),
     });
   }
 
@@ -38,6 +51,7 @@ export default class SkillQuality {
     const refetch = this.refreshers.get(name);
     if (refetch) void refetch();
     else this.notify();
+    if (this.boardRefresh) void this.boardRefresh();
   }
 
   /** Kick off (or refuse) a re-evaluation for one skill. The backend

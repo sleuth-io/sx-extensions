@@ -385,6 +385,41 @@ var CARD = "border: 1px solid var(--color-line); border-radius: 12px; padding: 1
 var BUTTON = "padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 500;border: 1px solid var(--color-line); border-radius: 8px; cursor: pointer;background: var(--color-surface); color: var(--color-ink);";
 var PRIMARY = BUTTON + "background: var(--color-accent); border-color: var(--color-accent); color: white;";
 var NOTE = "border: 1px solid var(--color-line); border-radius: 8px; padding: 8px 10px;background: var(--color-canvas); font-size: 12px; line-height: 1.5;";
+var SMALL_BUTTON = BUTTON + "padding: 3px 8px; font-size: 11px; white-space: nowrap;";
+function menuButton(items) {
+  const wrap = el("div", "position: relative; margin-left: auto;");
+  const btn = el("button", SMALL_BUTTON + "line-height: 1;", "\u22EF");
+  btn.title = "More actions";
+  const menu = el(
+    "div",
+    "position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; display: none;min-width: 150px; padding: 4px; border: 1px solid var(--color-line); border-radius: 8px;background: var(--color-surface); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);flex-direction: column; gap: 2px;"
+  );
+  for (const item of items) {
+    const it = el(
+      "button",
+      "text-align: left; padding: 5px 8px; font: inherit; font-size: 12px; border: 0;border-radius: 6px; background: transparent; cursor: pointer;" + (item.danger ? "color: var(--color-danger);" : "color: var(--color-ink);"),
+      item.label
+    );
+    it.onmouseenter = () => it.style.background = "var(--color-canvas)";
+    it.onmouseleave = () => it.style.background = "transparent";
+    it.onclick = (e) => {
+      e.stopPropagation();
+      menu.style.display = "none";
+      item.run();
+    };
+    menu.append(it);
+  }
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const opening = menu.style.display === "none" || !menu.style.display;
+    menu.style.display = opening ? "flex" : "none";
+    if (opening) {
+      document.addEventListener("click", () => menu.style.display = "none", { once: true });
+    }
+  };
+  wrap.append(btn, menu);
+  return wrap;
+}
 function sectionLabel(text) {
   return el(
     "div",
@@ -586,6 +621,422 @@ async function mountTab(plugin, view, ctx) {
   await refresh();
 }
 
+// src/board.js
+var STATUS_ORDER = [
+  "not-evaluated",
+  "stale",
+  "retire-candidate",
+  "low",
+  "needs-work",
+  "good",
+  "exemplary"
+];
+var STATUS_LABEL = {
+  "not-evaluated": "Not evaluated",
+  stale: "Stale",
+  "retire-candidate": "Retire candidate",
+  low: "Low quality",
+  "needs-work": "Needs work",
+  good: "Good",
+  exemplary: "High quality"
+};
+var STATUS_HELP = [
+  ["Not evaluated", "No quality score yet \u2014 evaluate it to get a baseline."],
+  ["Stale", "The skill changed since its last evaluation \u2014 the score may no longer apply. Re-evaluate."],
+  [
+    "Retire candidate",
+    "Scored Inadequate (<25): missing essential elements or placeholder content. Improve it substantially, or deprecate it."
+  ],
+  ["Low quality", "Scored Poor (25\u201359) \u2014 the insights list concrete fixes."],
+  ["Needs work", "Scored 60\u201374 \u2014 useful, but the recommendations are worth applying."],
+  ["Good", "Scored 75\u201384 \u2014 solid work with minor gaps."],
+  ["High quality", "Scored 85+ \u2014 exemplary; a template for new skills."]
+];
+var STALE_SLACK_MS = 60 * 1e3;
+function classifyStatus({ record, updatedAt }) {
+  if (!record || typeof record.overall !== "number") return "not-evaluated";
+  const evaluatedAt = record.at ? Date.parse(record.at) : NaN;
+  const changedAt = updatedAt ? Date.parse(updatedAt) : NaN;
+  if (Number.isFinite(evaluatedAt) && Number.isFinite(changedAt) && changedAt - evaluatedAt > STALE_SLACK_MS) {
+    return "stale";
+  }
+  const overall = record.overall;
+  if (overall < 25) return "retire-candidate";
+  if (overall < 60) return "low";
+  if (overall < 75) return "needs-work";
+  if (overall < 85) return "good";
+  return "exemplary";
+}
+function attentionScore({ status, overall, uses30 = 0 }) {
+  let score = 0;
+  const reasons = [];
+  switch (status) {
+    case "not-evaluated":
+      score = 50;
+      reasons.push("never evaluated");
+      break;
+    case "stale":
+      score = 40;
+      reasons.push("changed since evaluation");
+      break;
+    case "retire-candidate":
+      score = 35;
+      reasons.push(`inadequate (${overall})`);
+      break;
+    case "low":
+      score = 25 + Math.round((60 - overall) / 4);
+      reasons.push(`low quality (${overall})`);
+      break;
+    case "needs-work":
+      score = 8;
+      reasons.push(`needs work (${overall})`);
+      break;
+    default:
+      score = 0;
+  }
+  if (score > 0 && uses30 >= 20) {
+    score += 10;
+    reasons.push(`${uses30} uses/30d`);
+  }
+  return { score, reasons };
+}
+function retireRank(a, b) {
+  return a.uses30 - b.uses30 || a.overall - b.overall;
+}
+function weakestCategory(record) {
+  const labels = {
+    structure: "structure",
+    actionability: "actionability",
+    content: "content",
+    completeness: "completeness"
+  };
+  let worst = null;
+  for (const [key, label] of Object.entries(labels)) {
+    const score = record?.categories?.[key];
+    if (typeof score !== "number") continue;
+    if (!worst || score < worst.score) worst = { label, score };
+  }
+  return worst;
+}
+function rollup(rows) {
+  const evaluated = rows.filter((r) => r.record);
+  const scores = evaluated.map((r) => r.record.overall).filter((s) => typeof s === "number");
+  return {
+    skills: rows.length,
+    evaluated: evaluated.length,
+    avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+    high: rows.filter((r) => r.status === "exemplary").length,
+    low: rows.filter((r) => r.status === "low").length,
+    retire: rows.filter((r) => r.status === "retire-candidate").length,
+    stale: rows.filter((r) => r.status === "stale").length
+  };
+}
+
+// src/ui-main.js
+var NAME_COL = "font-weight: 600; width: 220px; flex: none; overflow: hidden;text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--color-ink);";
+var SCORE_PILL = "display: inline-flex; align-items: center; justify-content: center; width: 34px;border-radius: 999px; font-size: 11px; font-weight: 700; color: white; padding: 1px 0;";
+function scorePill(overall) {
+  return el("span", SCORE_PILL + `background: ${scoreColor(overall)};`, String(overall));
+}
+async function mountMain(plugin, view) {
+  const sx = plugin.sx;
+  const state = {
+    disposed: false,
+    status: "Loading library\u2026",
+    refreshing: false,
+    rows: [],
+    filter: "",
+    showLegend: false
+  };
+  const openQuality = (name) => sx.ui.openAsset(name, { tab: "quality" });
+  const rerender = () => {
+    if (state.disposed) return;
+    view.el.style.cssText = "display: flex; flex-direction: column; gap: 12px;";
+    view.el.replaceChildren(...render());
+  };
+  plugin.rerenders.add(rerender);
+  view.onDispose(() => {
+    state.disposed = true;
+    plugin.rerenders.delete(rerender);
+  });
+  async function collect() {
+    if (state.refreshing) return;
+    state.refreshing = true;
+    state.status = state.rows.length ? "" : "Loading library\u2026";
+    rerender();
+    try {
+      const [latest, assets, events] = await Promise.all([
+        sx.quality.latest().catch(() => ({})),
+        sx.assets.list().catch(() => []),
+        sx.usage.events(30).catch(() => [])
+      ]);
+      const uses = {};
+      for (const e of events) uses[e.assetName] = (uses[e.assetName] || 0) + 1;
+      state.rows = assets.filter((a) => a.type === "skill").map((a) => {
+        const record = latest[a.name] || null;
+        const status = classifyStatus({ record, updatedAt: a.updatedAt });
+        const attn = attentionScore({
+          status,
+          overall: record?.overall ?? 0,
+          uses30: uses[a.name] || 0
+        });
+        return {
+          name: a.name,
+          description: a.description,
+          record,
+          status,
+          overall: record?.overall ?? null,
+          uses30: uses[a.name] || 0,
+          score: attn.score,
+          reasons: attn.reasons
+        };
+      });
+    } finally {
+      state.status = "";
+      state.refreshing = false;
+      rerender();
+    }
+  }
+  plugin.boardRefresh = collect;
+  view.onDispose(() => {
+    if (plugin.boardRefresh === collect) plugin.boardRefresh = null;
+  });
+  async function evaluate(name) {
+    await plugin.reevaluate(name);
+    await collect();
+  }
+  async function markDeprecated(name) {
+    const ok = await sx.ui.confirm(
+      `Mark ${name} as deprecated? This publishes a metadata-only revision (content untouched) so teammates see the status.`,
+      "Mark deprecated"
+    );
+    if (!ok) return;
+    try {
+      await sx.writeAssetMetadata(name, { status: "deprecated" });
+      sx.ui.notice(`${name} marked deprecated.`);
+    } catch (err) {
+      sx.ui.notice(`Couldn't update metadata: ${err?.message || err}`);
+    }
+    await collect();
+  }
+  function header() {
+    const wrap = el("div", "display: flex; gap: 10px; align-items: center; flex-wrap: wrap;");
+    const r = rollup(state.rows);
+    const bits = r.skills ? [
+      `${r.skills} skills`,
+      `${r.evaluated} evaluated (${Math.round(r.evaluated / r.skills * 100)}%)`,
+      r.avg !== null ? `avg ${r.avg}` : null,
+      `${r.high} high quality`,
+      `${r.low + r.retire} low`,
+      r.retire ? `${r.retire} retire candidate${r.retire === 1 ? "" : "s"}` : null
+    ].filter(Boolean) : ["No skills in this library yet."];
+    wrap.append(el("div", SOFT + "font-size: 13px;", bits.join(" \xB7 ")));
+    wrap.append(el("div", "flex: 1;"));
+    const help = el("button", SMALL_BUTTON + "border-radius: 999px; line-height: 1;", "?");
+    help.title = "What the statuses mean";
+    help.onclick = () => {
+      state.showLegend = !state.showLegend;
+      rerender();
+    };
+    if (state.refreshing && state.rows.length) {
+      wrap.append(el("span", FAINT + "font-size: 12px;", "Refreshing\u2026"), help);
+      return wrap;
+    }
+    const refresh = el("button", SMALL_BUTTON, "Refresh");
+    refresh.onclick = () => void collect();
+    wrap.append(refresh, help);
+    return wrap;
+  }
+  function legend() {
+    const panel = el("div", NOTE + "display: flex; flex-direction: column; gap: 5px;");
+    for (const [label, meaning] of STATUS_HELP) {
+      const line = el("div", "display: flex; gap: 8px; align-items: baseline;");
+      line.append(
+        el("span", "font-weight: 600; font-size: 12px; width: 130px; flex: none;", label),
+        el("span", SOFT + "font-size: 12px;", meaning)
+      );
+      panel.append(line);
+    }
+    return panel;
+  }
+  function busyStrip() {
+    const names = [...plugin.busy.keys()];
+    if (!names.length) return null;
+    return el("div", NOTE, `Evaluating ${names.join(", ")}\u2026 results land on each skill's Quality tab.`);
+  }
+  function evaluateButton(r) {
+    const btn = el("button", SMALL_BUTTON + "margin-left: auto;", r.record ? "Re-evaluate" : "Evaluate");
+    if (plugin.busy.has(r.name)) {
+      btn.textContent = "Evaluating\u2026";
+      btn.style.opacity = "0.6";
+      btn.style.pointerEvents = "none";
+    } else {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        void evaluate(r.name);
+      };
+    }
+    return btn;
+  }
+  function queueRow(r) {
+    const row = el(
+      "div",
+      "display: flex; gap: 8px; align-items: center; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface);"
+    );
+    const nameLink = el("a", NAME_COL, r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openQuality(r.name);
+    row.append(nameLink);
+    for (const reason of r.reasons.slice(0, 2)) row.append(chip(reason, "faint"));
+    row.append(evaluateButton(r));
+    return row;
+  }
+  function retireRow(r) {
+    const row = el(
+      "div",
+      "display: flex; flex-direction: column; gap: 3px; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px;background: var(--color-surface);"
+    );
+    const head = el("div", "display: flex; gap: 8px; align-items: center;");
+    const nameLink = el("a", NAME_COL + "font-size: 12px;", r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openQuality(r.name);
+    head.append(
+      nameLink,
+      scorePill(r.overall),
+      chip("retire candidate", "danger"),
+      menuButton([
+        { label: "Open quality", run: () => openQuality(r.name) },
+        { label: "Re-evaluate", run: () => void evaluate(r.name) },
+        { label: "Mark deprecated\u2026", run: () => void markDeprecated(r.name), danger: true }
+      ])
+    );
+    const worst = weakestCategory(r.record);
+    const improvement = r.record?.insights?.improvements?.[0];
+    const evidence = [
+      `scored ${r.overall} (Inadequate)`,
+      worst ? `weakest: ${worst.label} ${worst.score}%` : null,
+      r.uses30 ? `${r.uses30} uses/30d` : "unused in 30d",
+      r.record?.at ? `evaluated ${fmtAgo(Date.parse(r.record.at))}` : null
+    ].filter(Boolean).join(" \xB7 ");
+    row.append(head, el("div", FAINT + "font-size: 11px;", evidence));
+    if (improvement) row.append(el("div", FAINT + "font-size: 11px;", `top issue: ${improvement}`));
+    return row;
+  }
+  function exemplaryRow(r) {
+    const row = el(
+      "div",
+      "display: flex; gap: 8px; align-items: center; padding: 6px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface);"
+    );
+    const nameLink = el("a", NAME_COL, r.name);
+    nameLink.title = r.name;
+    nameLink.onclick = () => openQuality(r.name);
+    row.append(nameLink, scorePill(r.overall), chip("template-worthy", "accent"));
+    const strength = r.record?.insights?.strengths?.[0];
+    if (strength) {
+      row.append(el("span", FAINT + "font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;", strength));
+    }
+    return row;
+  }
+  function table() {
+    const wrap = el("div", "display: flex; flex-direction: column; gap: 6px;");
+    const filters = el("div", "display: flex; gap: 6px; flex-wrap: wrap;");
+    const counts = {};
+    for (const r of state.rows) counts[r.status] = (counts[r.status] || 0) + 1;
+    for (const status of ["", ...STATUS_ORDER.filter((s) => counts[s])]) {
+      const label = status ? `${STATUS_LABEL[status]} (${counts[status]})` : `All (${state.rows.length})`;
+      const active = state.filter === status;
+      const b = el(
+        "button",
+        SMALL_BUTTON + "border-radius: 999px;" + (active ? "background: var(--color-accent); border-color: var(--color-accent); color: white;" : ""),
+        label
+      );
+      b.onclick = () => {
+        state.filter = status;
+        rerender();
+      };
+      filters.append(b);
+    }
+    wrap.append(filters);
+    const rows = state.rows.filter((r) => !state.filter || r.status === state.filter).sort(
+      (a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || (a.overall ?? 101) - (b.overall ?? 101)
+    );
+    for (const r of rows) {
+      const line = el(
+        "div",
+        "display: flex; gap: 10px; align-items: center; padding: 4px 10px;border: 1px solid var(--color-line); border-radius: 8px; font-size: 12px;background: var(--color-surface); cursor: pointer;"
+      );
+      line.onclick = () => openQuality(r.name);
+      const tone = r.status === "exemplary" || r.status === "good" ? "accent" : r.status === "retire-candidate" || r.status === "low" ? "danger" : "faint";
+      const name = el("span", NAME_COL, r.name);
+      name.title = r.name;
+      line.append(name);
+      if (r.overall !== null) line.append(scorePill(r.overall));
+      line.append(chip(STATUS_LABEL[r.status], tone));
+      const worst = r.record && r.status !== "exemplary" ? weakestCategory(r.record) : null;
+      if (worst) line.append(el("span", SOFT + "white-space: nowrap;", `weakest: ${worst.label} ${worst.score}%`));
+      line.append(el("span", "flex: 1;"));
+      if (r.uses30 > 0) line.append(el("span", FAINT + "white-space: nowrap;", `${r.uses30} uses/30d`));
+      line.append(rowMenu(r));
+      wrap.append(line);
+    }
+    return wrap;
+  }
+  function rowMenu(r) {
+    const items = [
+      { label: "Open quality", run: () => openQuality(r.name) },
+      { label: r.record ? "Re-evaluate" : "Evaluate", run: () => void evaluate(r.name) }
+    ];
+    if (r.status === "retire-candidate") {
+      items.push({ label: "Mark deprecated\u2026", run: () => void markDeprecated(r.name), danger: true });
+    }
+    const menu = menuButton(items);
+    menu.style.marginLeft = "0";
+    menu.onclick = (e) => e.stopPropagation();
+    return menu;
+  }
+  function render() {
+    const out = [];
+    const strip = busyStrip();
+    if (strip) out.push(strip);
+    out.push(header());
+    if (state.showLegend) out.push(legend());
+    if (state.status) {
+      out.push(el("div", FAINT + "font-size: 13px; padding: 8px;", state.status));
+      return out;
+    }
+    if (!state.rows.length) return out;
+    const queue = state.rows.filter((r) => r.score >= 10).sort((a, b) => b.score - a.score).slice(0, 5);
+    if (queue.length) {
+      out.push(sectionLabel("Up next"));
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...queue.map(queueRow));
+      out.push(list);
+    }
+    const retire = state.rows.filter((r) => r.status === "retire-candidate").sort(retireRank);
+    if (retire.length) {
+      const label = sectionLabel(`Retire candidates (${retire.length})`);
+      label.title = "Scored Inadequate \u2014 missing essential elements. Improve substantially or deprecate.";
+      out.push(label);
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...retire.map(retireRow));
+      out.push(list);
+    }
+    const exemplary = state.rows.filter((r) => r.status === "exemplary").sort((a, b) => b.overall - a.overall).slice(0, 5);
+    if (exemplary.length) {
+      const label = sectionLabel(`High quality (${exemplary.length})`);
+      label.title = "Exemplary skills \u2014 point new authors at these as templates.";
+      out.push(label);
+      const list = el("div", "display: flex; flex-direction: column; gap: 4px;");
+      list.append(...exemplary.map(exemplaryRow));
+      out.push(list);
+    }
+    out.push(sectionLabel("All skills"), table());
+    return out;
+  }
+  rerender();
+  await collect();
+}
+
 // src/index.js
 var POLL_MS = 4e3;
 var POLL_LIMIT_MS = 5 * 60 * 1e3;
@@ -595,10 +1046,22 @@ var SkillQuality = class {
     this.rerenders = /* @__PURE__ */ new Set();
     this.refreshers = /* @__PURE__ */ new Map();
     this.busy = /* @__PURE__ */ new Map();
+    this.boardRefresh = null;
     sx.registerAssetTab({
       id: "quality",
       title: "Quality",
       mount: (view, ctx) => void mountTab(this, view, ctx)
+    });
+    sx.registerMainView({
+      id: "skill-quality",
+      title: "Skill Quality",
+      section: "tools",
+      mount: (view) => void mountMain(this, view)
+    });
+    sx.registerCommand({
+      id: "open-quality-board",
+      title: "Skill Quality: open board",
+      run: () => sx.ui.openView("skill-quality")
     });
   }
   onunload() {
@@ -611,6 +1074,7 @@ var SkillQuality = class {
     const refetch = this.refreshers.get(name);
     if (refetch) void refetch();
     else this.notify();
+    if (this.boardRefresh) void this.boardRefresh();
   }
   /** Kick off (or refuse) a re-evaluation for one skill. The backend
    * decides who evaluates: "server" (skills.new runs it; we poll) or

@@ -28,6 +28,8 @@ const LLM_ASSESSMENT = {
 function stubSx({ mode = "local", confirm = true, evaluatingPolls = 0 } = {}) {
   const state = {
     tabs: [],
+    views: [],
+    commands: [],
     notices: [],
     added: [],
     gets: 0,
@@ -39,6 +41,8 @@ function stubSx({ mode = "local", confirm = true, evaluatingPolls = 0 } = {}) {
   return {
     state,
     registerAssetTab: (spec) => state.tabs.push(spec),
+    registerMainView: (spec) => state.views.push(spec),
+    registerCommand: (spec) => state.commands.push(spec),
     ui: {
       notice: (msg) => state.notices.push(msg),
       confirm: async () => confirm,
@@ -75,13 +79,27 @@ function stubSx({ mode = "local", confirm = true, evaluatingPolls = 0 } = {}) {
   };
 }
 
-test("onload registers the Quality asset tab", () => {
+test("onload registers the Quality tab, the board view, and its command", () => {
   const sx = stubSx();
   const plugin = new SkillQuality();
   plugin.onload(sx);
   assert.equal(sx.state.tabs.length, 1);
   assert.equal(sx.state.tabs[0].id, "quality");
   assert.equal(sx.state.tabs[0].title, "Quality");
+  assert.equal(sx.state.views.length, 1);
+  assert.equal(sx.state.views[0].id, "skill-quality");
+  assert.equal(sx.state.views[0].section, "tools");
+  assert.equal(sx.state.commands.length, 1);
+});
+
+test("a finished evaluation refreshes the mounted board", async () => {
+  const sx = stubSx({ mode: "local" });
+  const plugin = new SkillQuality();
+  plugin.onload(sx);
+  let boardRefreshes = 0;
+  plugin.boardRefresh = async () => boardRefreshes++;
+  await plugin.reevaluate("commit-msgs");
+  assert.ok(boardRefreshes >= 1, "board never refreshed");
 });
 
 test("local mode runs one LLM call and stores a valid record", async () => {
