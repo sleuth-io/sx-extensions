@@ -755,5 +755,7 @@ created_by = "skills/v2.0.0-19-g8b434ae-dirty"
   name = "skill-quality"
   version = "1"
   type = "app-plugin"
-  [assets.source-path]
-    path = ".sx/versions/skill-quality/1"
+  [assets.source-http]
+    url = "https://github.com/sleuth-io/sx-extensions/releases/download/downloads/skill-quality-1.zip"
+    size = 38450
+    hashes = {sha256 = "c46e1a060a822ca81aca359e531d69f44d973671ebf1dba575227887bdc509ec"}
