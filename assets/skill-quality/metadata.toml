@@ -1,0 +1,9 @@
+[asset]
+  name = "skill-quality"
+  version = "1"
+  type = "app-plugin"
+  description = "Score every skill's quality the way skills.new does — overall score, Structure/Actionability/Content/Completeness breakdown, and concrete insights — evaluated by your AI provider on file vaults and read straight from the server on skills.new. Includes a library-wide quality board with high/low/retire recommendations."
+
+[app-plugin]
+  entry = "main.js"
+  permissions = ["assets:read", "usage:read", "quality", "llm:use", "views:asset-tab", "views:main", "commands", "assets:write-metadata"]
