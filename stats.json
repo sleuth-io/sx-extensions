@@ -53,6 +53,9 @@
   "skill-evals": {
     "installs": 8
   },
+  "skill-quality": {
+    "installs": 2
+  },
   "smart-templates": {
     "installs": 11
   },
