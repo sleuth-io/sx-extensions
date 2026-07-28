@@ -1,77 +1,77 @@
 {
   "activity-heatmap": {
-    "installs": 15
+    "installs": 16
   },
   "ai-assist": {
     "installs": 4
   },
   "asset-query": {
-    "installs": 10
+    "installs": 11
   },
   "asset-relations": {
-    "installs": 6
+    "installs": 7
   },
   "claude-assist": {
     "installs": 8
   },
   "collection-doctor": {
-    "installs": 4
+    "installs": 5
   },
   "collection-export": {
-    "installs": 2
-  },
-  "collection-readme": {
     "installs": 3
   },
+  "collection-readme": {
+    "installs": 4
+  },
   "draft-refactor": {
-    "installs": 6
-  },
-  "library-board": {
-    "installs": 11
-  },
-  "library-stats": {
-    "installs": 6
-  },
-  "metric-charts": {
     "installs": 7
   },
+  "library-board": {
+    "installs": 12
+  },
+  "library-stats": {
+    "installs": 7
+  },
+  "metric-charts": {
+    "installs": 8
+  },
   "recent-assets": {
-    "installs": 11
+    "installs": 12
   },
   "related-assets": {
-    "installs": 10
-  },
-  "repo-doctor": {
-    "installs": 6
-  },
-  "repo-sync-status": {
-    "installs": 6
-  },
-  "review-rota": {
-    "installs": 6
-  },
-  "skill-evals": {
-    "installs": 8
-  },
-  "skill-quality": {
-    "installs": 2
-  },
-  "smart-templates": {
     "installs": 11
   },
+  "repo-doctor": {
+    "installs": 7
+  },
+  "repo-sync-status": {
+    "installs": 7
+  },
+  "review-rota": {
+    "installs": 7
+  },
+  "skill-evals": {
+    "installs": 9
+  },
+  "skill-quality": {
+    "installs": 3
+  },
+  "smart-templates": {
+    "installs": 12
+  },
   "style-linter": {
-    "installs": 8
+    "installs": 9
   },
   "table-tidy": {
-    "installs": 6
+    "installs": 7
   },
   "team-digest": {
-    "installs": 6
+    "installs": 7
   },
   "team-doctor": {
-    "installs": 6
+    "installs": 7
   },
   "team-pulse": {
-    "installs": 6
+    "installs": 7
   }
 }
